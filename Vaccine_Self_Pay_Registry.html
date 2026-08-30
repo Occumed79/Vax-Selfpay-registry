@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Vaccine Self-Pay Registry — Map + E-Catalogue</title>
+<link href="https://cdn.maptiler.com/maptiler-sdk-js/v4.1.0/maptiler-sdk.css" rel="stylesheet">
+<script src="https://cdn.maptiler.com/maptiler-sdk-js/v4.1.0/maptiler-sdk.umd.min.js"></script>
+<script>window.__MAPTILER_KEY__="";</script>
+<style>
+:root{
+  --bg:#edf0f1;--paper:#fdfdfb;--ink:#151618;--muted:#77797d;--line:#dde1e3;
+  --green:#12d84c;--teal:#16c985;--cyan:#2a9bb7;--blue:#3a77d6;--violet:#5447f5;
+  --grad:linear-gradient(135deg,#12d84c,#16c985 28%,#2a9bb7 56%,#3a77d6 78%,#5447f5);
+  --shadow:0 28px 80px rgba(28,40,50,.14)
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--ink);overflow:hidden}
+button,input,select{font:inherit}button{cursor:pointer}a{text-decoration:none;color:inherit}
+#app{height:100dvh;display:flex;flex-direction:column}
+.topbar{height:58px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:rgba(249,249,248,.90);backdrop-filter:blur(20px) saturate(170%);border-bottom:1px solid rgba(0,0,0,.07);z-index:100}
+.brand{font-size:17px;font-weight:780;letter-spacing:-.025em}.brand span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.modes{display:flex;gap:4px;background:#e9ebed;padding:4px;border-radius:999px}.mode{border:0;background:transparent;border-radius:999px;padding:8px 16px;font-size:12px;font-weight:760;color:#6b6d72}.mode.active{background:#fff;color:#111;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+.meta{font-size:10px;color:#85878b;white-space:nowrap}.view{flex:1;min-height:0;display:none}.view.active{display:block}
+
+/* MAP */
+.map-view{padding:14px;background:#e9ebed}.map-shell{height:100%;display:grid;grid-template-columns:390px 1fr;background:#fff;border:1px solid #d9dde0;border-radius:30px;overflow:hidden;box-shadow:var(--shadow)}
+.map-side{background:#fafafb;border-right:1px solid #e1e4e6;padding:16px;overflow:auto}.filters{position:sticky;top:0;background:#fafafb;padding-bottom:12px;z-index:5;display:grid;grid-template-columns:1fr 1fr;gap:8px}.filters .wide{grid-column:1/-1}.filters input,.filters select{width:100%;border:1px solid #dfe2e5;background:#fff;border-radius:15px;padding:12px 13px;outline:none;color:#1d1e20}.filters input:focus,.filters select:focus{border-color:#aebdca;box-shadow:0 0 0 3px rgba(58,119,214,.08)}
+.result-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 10px;font-size:10px;color:#77797d}.result-bar b{color:#1b1c1e}.reset{border:0;background:transparent;font-size:10px;font-weight:760;color:#3a77d6;padding:0}
+.map-list{display:grid;gap:9px}.map-item{border:1px solid #e0e3e5;background:#fff;border-radius:18px;padding:14px 15px;transition:.18s;cursor:pointer}.map-item:hover{transform:translateX(4px);border-color:#bdccd8;box-shadow:0 8px 20px rgba(0,0,0,.045)}
+.map-item-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.map-item .price{font-size:24px;font-weight:850;letter-spacing:-.04em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.map-item .basis{font-size:8px;text-transform:uppercase;letter-spacing:.08em;color:#8a8c90;margin-top:3px}.map-item .vaccine{font-size:11px;font-weight:800;text-align:right;max-width:160px}.map-item .brand-name{font-size:9px;color:#74767a;text-align:right;margin-top:2px}.map-item .provider{font-size:13px;font-weight:750;margin-top:9px}.map-item .loc{font-size:11px;color:#7b7d81;margin-top:3px}.map-item .fees{font-size:9px;color:#6e7074;margin-top:8px;padding-top:7px;border-top:1px solid #eceeef}
+.empty{border:1px dashed #d5d9dc;border-radius:18px;padding:20px;text-align:center;color:#787a7e;font-size:12px;line-height:1.5;background:#fff}.empty b{display:block;color:#242527;font-size:14px;margin-bottom:4px}
+.map-wrap{position:relative;min-width:0;background:#dfe5e7}#locationMap{position:absolute;inset:0}.map-settings{position:absolute;right:18px;bottom:18px;z-index:10;border:0;border-radius:999px;background:#111;color:#fff;padding:10px 13px;font-size:11px;font-weight:750}.map-note{position:absolute;left:18px;bottom:18px;z-index:10;background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border:1px solid rgba(0,0,0,.09);border-radius:14px;padding:9px 11px;font-size:9px;color:#696b6f;max-width:310px}.keybox{position:absolute;right:18px;top:18px;z-index:20;width:310px;background:rgba(255,255,255,.95);backdrop-filter:blur(18px);border:1px solid #dfe2e5;border-radius:18px;padding:13px;box-shadow:var(--shadow)}.keybox.hidden{display:none}.keybox label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.09em;color:#787a7e;font-weight:780}.keybox p{font-size:9px;line-height:1.4;color:#77797d;margin:5px 0 0}.keybox input{width:100%;margin-top:9px;padding:10px;border:1px solid #dfe2e5;border-radius:12px}.keyactions{display:flex;gap:7px;margin-top:7px}.keyactions button{border:0;border-radius:999px;padding:8px 11px;font-size:10px;font-weight:750}.save{background:#111;color:#fff}.close{background:#eceef0}.maptiler-popup-content{border-radius:18px!important;padding:14px!important;box-shadow:0 15px 45px rgba(0,0,0,.14)!important}.popup-card{min-width:250px;max-width:320px}.popup-price{font-size:29px;font-weight:850;letter-spacing:-.04em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.popup-vax{font-size:12px;font-weight:800;margin-top:4px}.popup-provider{font-weight:760;font-size:14px;margin-top:9px;color:#111}.popup-loc{font-size:11px;color:#727478;margin-top:2px}.popup-extra{font-size:10px;line-height:1.45;margin-top:8px;color:#555}.popup-card a{display:inline-block;margin-top:9px;color:#3375d2;font-size:11px;font-weight:750}
+
+/* FLIPBOOK */
+.book-view{background:radial-gradient(125% 110% at 50% 5%,#e8ecee,#cbd2d6 98%);position:relative;perspective:1700px;overflow:hidden}.book-controls{position:absolute;z-index:80;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:6px;align-items:center;background:rgba(249,249,248,.9);backdrop-filter:blur(16px);border:1px solid rgba(0,0,0,.09);border-radius:999px;padding:6px;box-shadow:0 8px 28px rgba(0,0,0,.10)}.book-controls button{border:0;background:transparent;width:34px;height:34px;border-radius:50%;font-size:19px;color:#555}.book-controls button:hover{background:#eceef0;color:#111}.book-controls button:disabled{opacity:.25}.book-count{min-width:96px;text-align:center;font-size:11px;color:#737579}.book-count b{color:#111}.jump{position:absolute;z-index:80;right:18px;top:16px;display:flex;gap:7px;align-items:center}.jump select{max-width:260px;padding:9px 12px;border:1px solid rgba(0,0,0,.10);border-radius:999px;background:rgba(249,249,248,.92);backdrop-filter:blur(14px);font-size:11px}.book-hint{position:absolute;z-index:70;left:50%;bottom:67px;transform:translateX(-50%);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#76787c;transition:.4s}.book-hint.hide{opacity:0}.book-space{position:absolute;inset:0 0 54px;display:flex;align-items:center;justify-content:center}.book-zoom{position:relative;width:840px;height:580px;transform-origin:center center;will-change:transform}.flipbook{width:420px;height:580px;position:absolute;left:50%;top:0;margin-left:-210px;transform-style:preserve-3d;transition:transform .8s cubic-bezier(.645,.045,.355,1)}.flipbook.open{transform:translateX(210px)}.flipbook.finished{transform:translateX(-210px)}.flipbook::after{content:"";position:absolute;left:0;bottom:-38px;width:840px;height:38px;background:radial-gradient(50% 50% at 50% 50%,rgba(30,39,47,.30),transparent 72%);filter:blur(8px);pointer-events:none}.leaf{position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:left center;transform-style:preserve-3d;transition:transform .85s cubic-bezier(.645,.045,.355,1);cursor:pointer}.leaf.flipped{transform:rotateY(-180deg)}.page{position:absolute;width:100%;height:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden;overflow:hidden;box-sizing:border-box}.page.front{transform:rotateY(0deg) translateZ(1px);border-radius:0 10px 10px 0}.page.back{transform:rotateY(180deg) translateZ(1px);border-radius:10px 0 0 10px}.inner-page{background:#fffefb;padding:28px 27px;color:#18191b;box-shadow:inset 10px 0 26px rgba(0,0,0,.045),0 0 5px rgba(0,0,0,.12)}.inner-page.back{box-shadow:inset -10px 0 26px rgba(0,0,0,.05),0 0 5px rgba(0,0,0,.12)}.cover-page{padding:36px 32px;display:flex;flex-direction:column;justify-content:space-between;background:linear-gradient(145deg,#12d84c,#16c985 30%,#2a9bb7 58%,#3a77d6 78%,#5447f5);color:white;box-shadow:inset 11px 0 25px rgba(0,0,0,.18),6px 7px 25px rgba(0,0,0,.22)}.cover-mark{font-size:8px;text-transform:uppercase;letter-spacing:.14em;font-weight:800;opacity:.85}.cover-page h1{font-family:Georgia,"Times New Roman",serif;font-size:50px;line-height:.9;letter-spacing:-.05em;font-weight:500;margin:0}.cover-page p{font-size:13px;line-height:1.45;color:rgba(255,255,255,.84);max-width:320px;margin:14px 0 0}.cover-foot{display:flex;justify-content:space-between;gap:7px;font-size:8px;color:rgba(255,255,255,.82)}.back-cover{padding:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:linear-gradient(145deg,#12d84c,#2a9bb7 58%,#5447f5);color:#fff;box-shadow:inset -11px 0 25px rgba(0,0,0,.18)}.back-cover h2{font-family:Georgia,"Times New Roman",serif;font-size:42px;line-height:.95;font-weight:500;margin:22px 0}.back-cover p{font-size:11px;color:rgba(255,255,255,.78);line-height:1.45}.micro{font-size:7px;text-transform:uppercase;letter-spacing:.12em;color:#7b7d81;font-weight:800}.index-page h2{font-family:Georgia,"Times New Roman",serif;font-size:31px;font-weight:500;letter-spacing:-.035em;margin:8px 0 14px}.toc{display:grid}.toc-row{display:grid;grid-template-columns:26px 1fr 44px;gap:7px;align-items:center;border-bottom:1px solid #e0e1e2;padding:7px 0}.toc-row i{font-size:7px;color:#85868a;font-style:normal}.toc-row b{font-family:Georgia,"Times New Roman",serif;font-size:11px;font-weight:500;line-height:1.12}.toc-row em{font-size:9px;font-style:normal;font-weight:800;text-align:right}.quick-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:14px}.quick-stats div{border:1px solid #e0e2e3;border-radius:10px;padding:9px}.quick-stats span{display:block;font-size:6px;text-transform:uppercase;letter-spacing:.1em;color:#85868a;font-weight:800}.quick-stats b{display:block;font-size:18px;margin-top:3px}.provider-title{font-family:Georgia,"Times New Roman",serif;font-size:27px;line-height:.98;letter-spacing:-.04em;font-weight:500;margin:7px 0 5px}.provider-city{font-size:9px;color:#74767a;line-height:1.25}.vax-title{font-size:8px;text-transform:uppercase;letter-spacing:.1em;font-weight:850;margin-top:18px;color:#3a77d6}.brand-line{font-size:10px;font-weight:700;margin-top:3px;color:#525458}.price-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:13px 0}.big-price{font-size:51px;line-height:.83;font-weight:850;letter-spacing:-.065em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.service-copy{text-align:right;max-width:180px}.service-copy span{display:block;font-size:6px;text-transform:uppercase;letter-spacing:.11em;color:#85868a;font-weight:800}.service-copy b{display:block;font-size:9px;line-height:1.25;margin-top:3px}.black-rule{height:3px;background:#17181a;margin-bottom:12px}.info-columns{display:grid;grid-template-columns:1.05fr .95fr;gap:13px}.info-columns section{border-top:1.5px solid #242527;padding-top:7px}.info-columns h3{font-size:7px;text-transform:uppercase;letter-spacing:.11em;margin:0 0 7px}.contacts{display:grid;gap:4px}.contact-row{display:grid;grid-template-columns:46px 1fr;gap:5px;font-size:7px;line-height:1.3}.contact-row span{color:#88898d}.contact-row b{font-weight:650;overflow-wrap:anywhere}.fee-grid{display:grid;gap:4px}.fee-row{display:flex;justify-content:space-between;gap:6px;font-size:7px;line-height:1.3}.fee-row span{color:#88898d}.fee-row b{font-weight:700}.evidence-box{margin-top:10px;padding:8px 9px;border:1px solid #e0e2e3;border-radius:10px;background:#f7f9fa}.evidence-box span{display:block;font-size:5.5px;text-transform:uppercase;letter-spacing:.1em;color:#818287;font-weight:800}.evidence-box b{display:block;font-size:8px;line-height:1.25;margin-top:3px}.evidence-box small{display:block;font-size:6.5px;color:#77797d;margin-top:3px;line-height:1.35}.page-source{display:inline-block;margin-top:7px;color:#3377d3;font-size:7px;font-weight:750}.page-number{position:absolute;bottom:11px;left:27px;font-family:Georgia,"Times New Roman",serif;font-size:8px;color:#7a7b80}.front .page-number{left:auto;right:27px}.no-data-page{display:flex;flex-direction:column;justify-content:center;text-align:center}.no-data-page h2{font-family:Georgia,"Times New Roman",serif;font-size:32px;font-weight:500;margin:0}.no-data-page p{font-size:11px;line-height:1.5;color:#77797d;margin:10px 10px 0}
+
+@media(max-width:900px){.meta{display:none}.map-shell{grid-template-columns:330px 1fr}.book-zoom{transform:scale(.82)}}
+@media(max-width:700px){.topbar{padding:0 10px}.brand{font-size:14px}.mode{padding:7px 11px}.map-view{padding:0}.map-shell{border:0;border-radius:0;grid-template-columns:1fr}.map-side{position:absolute;z-index:15;left:8px;right:8px;bottom:8px;max-height:45%;border:1px solid #d9dde0;border-radius:22px;box-shadow:0 12px 35px rgba(0,0,0,.15)}.map-wrap{height:100%}.book-zoom{transform:scale(.62)}.jump{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">Vaccine <span>Self-Pay Registry</span></div>
+    <div class="modes" role="tablist" aria-label="Registry views">
+      <button class="mode active" data-view="map">Map</button>
+      <button class="mode" data-view="book">E-Catalogue</button>
+    </div>
+    <div class="meta" id="topMeta">0 posted prices • 0 states</div>
+  </header>
+
+  <main class="view map-view active" id="mapView">
+    <div class="map-shell">
+      <aside class="map-side">
+        <div class="filters">
+          <input class="wide" id="searchInput" type="search" placeholder="Search provider, city, vaccine, brand…" autocomplete="off">
+          <select id="vaccineSelect" aria-label="Vaccine"></select>
+          <select id="stateSelect" aria-label="State"><option value="">All states</option></select>
+          <select id="routeSelect" aria-label="Route"><option value="">All routes</option><option value="Injectable">Injectable</option><option value="Oral">Oral</option></select>
+          <input id="maxPriceInput" type="number" min="0" step="1" inputmode="decimal" placeholder="Max price">
+        </div>
+        <div class="result-bar"><span id="resultCount"><b>0</b> prices</span><button class="reset" id="resetFilters">Reset</button></div>
+        <div class="map-list" id="mapList"></div>
+      </aside>
+      <section class="map-wrap">
+        <div id="locationMap"></div>
+        <div class="map-note" id="mapNote">Map pins represent clinics with posted vaccine prices matching the active filters.</div>
+        <button class="map-settings" id="mapSettings">Map key</button>
+        <div class="keybox hidden" id="keybox">
+          <label for="keyInput">MapTiler API key</label>
+          <p>Render can provide this through MAPTILER_KEY. A browser-only key can also be saved on this device.</p>
+          <input id="keyInput" type="password" placeholder="Paste key">
+          <div class="keyactions"><button class="save" id="saveKey">Save & load map</button><button class="close" id="closeKey">Close</button></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <main class="view book-view" id="bookView">
+    <div class="jump"><select id="bookVaccineSelect" aria-label="Catalogue vaccine"></select></div>
+    <div class="book-space"><div class="book-zoom" id="bookZoom"><div class="flipbook" id="flipbook"></div></div></div>
+    <div class="book-hint" id="bookHint">Click page edge or use arrows to turn</div>
+    <div class="book-controls">
+      <button id="bookPrev" aria-label="Previous page">‹</button>
+      <div class="book-count"><b id="bookCurrent">Cover</b> / <span id="bookTotal">0</span></div>
+      <button id="bookNext" aria-label="Next page">›</button>
+    </div>
+  </main>
+</div>
+
+<script>
+const VACCINE_CATALOG=[
+  {code:'mmr',name:'Measles, Mumps, Rubella (MMR)',brand:'',route:'Injectable'},
+  {code:'td',name:'Tetanus-Diphtheria (Td)',brand:'',route:'Injectable'},
+  {code:'tdap',name:'Tetanus-Diphtheria-Pertussis (Tdap)',brand:'',route:'Injectable'},
+  {code:'hep-a',name:'Hepatitis A',brand:'',route:'Injectable'},
+  {code:'hep-b',name:'Hepatitis B',brand:'',route:'Injectable'},
+  {code:'twinrix',name:'Hepatitis A & B',brand:'Twinrix',route:'Injectable'},
+  {code:'typhoid-injectable',name:'Typhoid',brand:'',route:'Injectable'},
+  {code:'typhoid-oral',name:'Typhoid',brand:'',route:'Oral'},
+  {code:'polio-injectable',name:'Polio',brand:'',route:'Injectable'},
+  {code:'polio-oral',name:'Polio',brand:'',route:'Oral'},
+  {code:'influenza-seasonal',name:'Seasonal Influenza',brand:'',route:'Injectable'},
+  {code:'varicella',name:'Varicella',brand:'',route:'Injectable'},
+  {code:'pneumovax-23',name:'Pneumococcal',brand:'Pneumovax 23',route:'Injectable'},
+  {code:'prevnar-13',name:'Pneumococcal',brand:'Prevnar 13',route:'Injectable'},
+  {code:'prevnar-20',name:'Pneumococcal',brand:'Prevnar 20',route:'Injectable'},
+  {code:'menactra',name:'Meningococcal',brand:'Menactra',route:'Injectable'},
+  {code:'menveo',name:'Meningococcal',brand:'Menveo',route:'Injectable'},
+  {code:'menquadfi',name:'Meningococcal',brand:'MenQuadfi',route:'Injectable'},
+  {code:'yellow-fever',name:'Yellow Fever',brand:'',route:'Injectable'},
+  {code:'japanese-encephalitis',name:'Japanese Encephalitis',brand:'',route:'Injectable'},
+  {code:'rabies',name:'Rabies',brand:'',route:'Injectable'},
+  {code:'covid-19',name:'COVID-19',brand:'',route:'Injectable'}
+];
+
+const DATA=[];
+const $=s=>document.querySelector(s);
+const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const money=value=>value==null||Number.isNaN(Number(value))?'—':new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(value));
+const shortMoney=value=>value==null||Number.isNaN(Number(value))?'—':'$'+Number(value).toLocaleString('en-US',{minimumFractionDigits:Number(value)%1?2:0,maximumFractionDigits:2});
+const labelFor=row=>row.brand?`${row.vaccine} — ${row.brand}`:row.vaccine;
+
+let filtered=[];
+let map=null;
+let mapReady=false;
+let activePopup=null;
+let currentBookLeaf=0;
+let totalBookLeaves=0;
+let bookEntries=[];
+
+function fillVaccineSelects(){
+  const options=['<option value="">All vaccines</option>'].concat(VACCINE_CATALOG.map(v=>`<option value="${esc(v.code)}">${esc(v.name+(v.brand?' — '+v.brand:'')+(v.code==='typhoid-injectable'?' — Injectable':v.code==='typhoid-oral'?' — Oral':v.code==='polio-injectable'?' — Injectable':v.code==='polio-oral'?' — Oral':''))}</option>`)).join('');
+  $('#vaccineSelect').innerHTML=options;
+  $('#bookVaccineSelect').innerHTML=options;
+}
+
+function fillStates(){
+  const states=[...new Set(DATA.map(d=>d.state).filter(Boolean))].sort();
+  $('#stateSelect').innerHTML='<option value="">All states</option>'+states.map(s=>`<option>${esc(s)}</option>`).join('');
+}
+
+function activeFilters(){
+  return {
+    q:$('#searchInput').value.trim().toLowerCase(),
+    vaccine:$('#vaccineSelect').value,
+    state:$('#stateSelect').value,
+    route:$('#routeSelect').value,
+    maxPrice:$('#maxPriceInput').value===''?null:Number($('#maxPriceInput').value)
+  };
+}
+
+function applyFilters(){
+  const f=activeFilters();
+  filtered=DATA.filter(row=>{
+    const hay=[row.provider,row.clinic,row.city,row.state,row.zip,row.vaccine,row.brand,row.route,row.formulation].join(' ').toLowerCase();
+    return (!f.q||hay.includes(f.q))&&(!f.vaccine||row.vaccineCode===f.vaccine)&&(!f.state||row.state===f.state)&&(!f.route||row.route===f.route)&&(f.maxPrice==null||Number(row.price)<=f.maxPrice);
+  });
+  renderList();
+  updateMap();
+  updateMeta();
+  rebuildBook();
+}
+
+function updateMeta(){
+  const states=new Set(DATA.map(d=>d.state).filter(Boolean)).size;
+  $('#topMeta').textContent=`${DATA.length.toLocaleString()} posted prices • ${states} states`;
+  $('#resultCount').innerHTML=`<b>${filtered.length.toLocaleString()}</b> prices`;
+}
+
+function feeText(row){
+  const parts=[];
+  if(row.administrationFee!=null) parts.push(`Admin ${shortMoney(row.administrationFee)}`);
+  if(row.consultationFee!=null) parts.push(`Consult ${shortMoney(row.consultationFee)}`);
+  if(row.otherFee!=null) parts.push(`Other ${shortMoney(row.otherFee)}`);
+  if(row.postedTotal!=null) parts.push(`Posted total ${shortMoney(row.postedTotal)}`);
+  return parts.join(' • ');
+}
+
+function renderList(){
+  const root=$('#mapList');
+  if(!filtered.length){
+    root.innerHTML=`<div class="empty"><b>No matching posted prices</b>${DATA.length?'Change or reset the filters to see more registry rows.':'The vaccine taxonomy is loaded. Price rows will appear here as records are added to Neon.'}</div>`;
+    return;
+  }
+  const visible=filtered.slice(0,250);
+  root.innerHTML=visible.map((row,i)=>`<article class="map-item" data-index="${i}">
+    <div class="map-item-top"><div><div class="price">${shortMoney(row.price)}</div><div class="basis">${esc(row.priceBasis||'per dose')}</div></div><div><div class="vaccine">${esc(row.vaccine)}</div>${row.brand?`<div class="brand-name">${esc(row.brand)}</div>`:''}</div></div>
+    <div class="provider">${esc(row.provider)}</div><div class="loc">${esc([row.city,row.state,row.zip].filter(Boolean).join(', ').replace(', '+row.zip,' '+row.zip))}</div>
+    ${feeText(row)?`<div class="fees">${esc(feeText(row))}</div>`:''}
+  </article>`).join('')+(filtered.length>visible.length?`<div class="empty"><b>${(filtered.length-visible.length).toLocaleString()} more rows</b>Use vaccine, state, route, price, or search filters to narrow the list.</div>`:'');
+  root.querySelectorAll('.map-item').forEach(el=>el.addEventListener('click',()=>focusRow(visible[Number(el.dataset.index)])));
+}
+
+function groupLocations(rows){
+  const groups=new Map();
+  rows.forEach(row=>{
+    if(row.lat==null||row.lon==null||!Number.isFinite(Number(row.lat))||!Number.isFinite(Number(row.lon))) return;
+    const key=[row.provider,row.address,row.city,row.state,row.zip].join('|');
+    if(!groups.has(key)) groups.set(key,{key,provider:row.provider,address:row.address,city:row.city,state:row.state,zip:row.zip,lat:Number(row.lat),lon:Number(row.lon),rows:[]});
+    groups.get(key).rows.push(row);
+  });
+  return [...groups.values()].map(g=>({...g,minPrice:Math.min(...g.rows.map(r=>Number(r.price))),count:g.rows.length}));
+}
+
+function mapGeoJSON(){
+  const groups=groupLocations(filtered);
+  return {type:'FeatureCollection',features:groups.map(g=>({type:'Feature',geometry:{type:'Point',coordinates:[g.lon,g.lat]},properties:{key:g.key,minPrice:g.minPrice,count:g.count,provider:g.provider}}))};
+}
+
+function getMapKey(){return window.__MAPTILER_KEY__||localStorage.getItem('vax_registry_maptiler_key')||''}
+
+function initMap(){
+  const key=getMapKey();
+  if(!key){$('#keybox').classList.remove('hidden');$('#mapNote').textContent='Add MAPTILER_KEY on Render or save a browser key to load the map.';return}
+  if(map) return;
+  maptilersdk.config.apiKey=key;
+  map=new maptilersdk.Map({container:'locationMap',style:`https://api.maptiler.com/maps/landscape-v4/style.json?key=${encodeURIComponent(key)}`,center:[-98.5,39.5],zoom:3.3,attributionControl:true});
+  map.addControl(new maptilersdk.NavigationControl({showCompass:false}),'top-right');
+  map.on('load',()=>{
+    mapReady=true;
+    map.addSource('registry',{type:'geojson',data:mapGeoJSON()});
+    map.addLayer({id:'registry-glow',type:'circle',source:'registry',paint:{'circle-radius':10,'circle-color':'rgba(42,155,183,.12)','circle-stroke-width':0}});
+    map.addLayer({id:'registry-points',type:'circle',source:'registry',paint:{'circle-radius':['interpolate',['linear'],['get','count'],1,5,10,8,40,11],'circle-color':['interpolate',['linear'],['get','minPrice'],0,'#12d84c',100,'#16c985',200,'#2a9bb7',350,'#3a77d6',600,'#5447f5'],'circle-stroke-color':'#ffffff','circle-stroke-width':2,'circle-opacity':.92}});
+    map.on('mouseenter','registry-points',()=>map.getCanvas().style.cursor='pointer');
+    map.on('mouseleave','registry-points',()=>map.getCanvas().style.cursor='');
+    map.on('click','registry-points',e=>{
+      const key=e.features?.[0]?.properties?.key;
+      const group=groupLocations(filtered).find(g=>g.key===key);
+      if(group) showGroupPopup(group);
+    });
+    updateMap(true);
+    $('#mapNote').textContent='Pins are clinic locations. Color follows the lowest matching posted vaccine price at each clinic.';
+  });
+  map.on('error',e=>console.warn('Map error',e?.error||e));
+}
+
+function updateMap(fit=false){
+  if(!map){initMap();return}
+  if(!mapReady) return;
+  const source=map.getSource('registry');
+  if(source) source.setData(mapGeoJSON());
+  const groups=groupLocations(filtered);
+  if((fit||groups.length===1)&&groups.length){
+    if(groups.length===1){map.flyTo({center:[groups[0].lon,groups[0].lat],zoom:11});}
+    else{
+      const bounds=new maptilersdk.LngLatBounds();groups.forEach(g=>bounds.extend([g.lon,g.lat]));map.fitBounds(bounds,{padding:70,maxZoom:9,duration:600});
+    }
+  }
+}
+
+function showGroupPopup(group,preferred){
+  if(!map) return;
+  const rows=preferred?[preferred].concat(group.rows.filter(r=>r!==preferred)):group.rows;
+  const top=rows.slice(0,4);
+  const html=`<div class="popup-card"><div class="popup-price">${shortMoney(top[0].price)}</div><div class="popup-vax">${esc(labelFor(top[0]))}</div><div class="popup-provider">${esc(group.provider)}</div><div class="popup-loc">${esc([group.address,group.city,group.state,group.zip].filter(Boolean).join(', '))}</div>${top.length>1?`<div class="popup-extra">${top.slice(1).map(r=>`${esc(labelFor(r))}: <b>${shortMoney(r.price)}</b>`).join('<br>')}${group.rows.length>4?`<br>+${group.rows.length-4} more matching prices`:''}</div>`:''}${top[0].source?`<a href="${esc(top[0].source)}" target="_blank" rel="noopener">Open posted-price source ↗</a>`:''}</div>`;
+  if(activePopup) activePopup.remove();
+  activePopup=new maptilersdk.Popup({offset:14,maxWidth:'340px'}).setLngLat([group.lon,group.lat]).setHTML(html).addTo(map);
+}
+
+function focusRow(row){
+  if(row.lat==null||row.lon==null||!map) return;
+  map.flyTo({center:[Number(row.lon),Number(row.lat)],zoom:12,duration:650});
+  const group=groupLocations(filtered).find(g=>g.rows.includes(row));
+  if(group) setTimeout(()=>showGroupPopup(group,row),350);
+}
+
+function coverPage(){
+  const stateCount=new Set(filtered.map(r=>r.state).filter(Boolean)).size;
+  return `<div class="page front cover-page"><div class="cover-mark">Occu-Med • Posted Self-Pay Pricing</div><div><h1>Vaccine<br>Price<br>Registry</h1><p>${filtered.length.toLocaleString()} posted price records across ${stateCount} states in the current catalogue view.</p></div><div class="cover-foot"><span>Map + E-Catalogue</span><span>Per-dose pricing evidence</span></div></div>`;
+}
+
+function indexPage(){
+  const counts=new Map();filtered.forEach(r=>counts.set(r.vaccineCode,(counts.get(r.vaccineCode)||0)+1));
+  const ranked=VACCINE_CATALOG.filter(v=>counts.get(v.code)).map(v=>({...v,count:counts.get(v.code)})).sort((a,b)=>b.count-a.count).slice(0,12);
+  const prices=filtered.map(r=>Number(r.price)).filter(Number.isFinite).sort((a,b)=>a-b);const median=prices.length?prices[Math.floor(prices.length/2)]:null;
+  return `<div class="page back inner-page index-page"><div class="micro">Catalogue index</div><h2>Posted vaccine prices</h2><div class="toc">${ranked.length?ranked.map((v,i)=>`<div class="toc-row"><i>${String(i+1).padStart(2,'0')}</i><b>${esc(v.name+(v.brand?' — '+v.brand:''))}</b><em>${v.count}</em></div>`).join(''):'<div class="empty">No registry rows loaded yet.</div>'}</div><div class="quick-stats"><div><span>Price rows</span><b>${filtered.length.toLocaleString()}</b></div><div><span>Median</span><b>${shortMoney(median)}</b></div></div><div class="page-number">2</div></div>`;
+}
+
+function recordPage(row,pageNumber,side){
+  const contact=[['Phone',row.phone],['Fax',row.fax],['Email',row.email]].filter(x=>x[1]);
+  const fees=[['Administration',row.administrationFee],['Consultation',row.consultationFee],['Other',row.otherFee],['Posted total',row.postedTotal]].filter(x=>x[1]!=null);
+  return `<div class="page ${side} inner-page"><div class="micro">Posted self-pay price • ${esc(row.priceBasis||'per dose')}</div><div class="provider-title">${esc(row.provider)}</div><div class="provider-city">${esc([row.address,row.city,row.state,row.zip].filter(Boolean).join(', '))}</div><div class="vax-title">${esc(row.vaccine)}</div>${row.brand?`<div class="brand-line">${esc(row.brand)}</div>`:''}<div class="price-row"><div class="big-price">${shortMoney(row.price)}</div><div class="service-copy"><span>Route / dose</span><b>${esc([row.route,row.dose].filter(Boolean).join(' • ')||'Posted vaccine price')}</b></div></div><div class="black-rule"></div><div class="info-columns"><section><h3>Pricing details</h3><div class="fee-grid"><div class="fee-row"><span>Vaccine price</span><b>${money(row.price)}</b></div>${fees.map(f=>`<div class="fee-row"><span>${esc(f[0])}</span><b>${money(f[1])}</b></div>`).join('')}<div class="fee-row"><span>Access</span><b>${esc(row.access||'Not stated')}</b></div></div></section><section><h3>Clinic contact</h3><div class="contacts">${contact.length?contact.map(c=>`<div class="contact-row"><span>${esc(c[0])}</span><b>${esc(c[1])}</b></div>`).join(''):'<div class="contact-row"><span>Contact</span><b>Not listed</b></div>'}</div></section></div><div class="evidence-box"><span>Source evidence</span><b>${esc(row.sourceTitle||'Posted self-pay price source')}</b><small>${esc(row.evidenceNote||row.accessNotes||'Price represented as posted by the source. Review source for eligibility, administration fees, age limits, and effective dates.')}</small></div>${row.source?`<a class="page-source" href="${esc(row.source)}" target="_blank" rel="noopener">Open source ↗</a>`:''}<div class="page-number">${pageNumber}</div></div>`;
+}
+
+function noDataPage(side){return `<div class="page ${side} inner-page no-data-page"><div class="micro">Registry status</div><h2>No price rows loaded</h2><p>The complete vaccine taxonomy is already wired into the registry. Once Neon contains posted-price records, map pins, filters, price cards, statistics, and catalogue pages populate automatically.</p><div class="page-number">3</div></div>`}
+function backCover(side){return `<div class="page ${side} back-cover"><div class="cover-mark">Vaccine Self-Pay Registry</div><h2>Source-first<br>pricing.</h2><p>Each registry row is designed to retain the clinic, vaccine, price basis, contact information, geocode, and direct posted-price source.</p></div>`}
+
+function rebuildBook(){
+  const vax=$('#bookVaccineSelect').value;
+  bookEntries=(vax?filtered.filter(r=>r.vaccineCode===vax):filtered).slice(0,240);
+  const pageHtml=[coverPage(),indexPage()];
+  if(bookEntries.length){bookEntries.forEach((r,i)=>pageHtml.push(recordPage(r,i+3,(i%2===0?'front':'back'))));}
+  else pageHtml.push(noDataPage('front'));
+  pageHtml.push(backCover(pageHtml.length%2===0?'front':'back'));
+  if(pageHtml.length%2!==0) pageHtml.push('<div class="page back inner-page"></div>');
+
+  const leaves=[];
+  for(let i=0;i<pageHtml.length;i+=2){
+    let front=pageHtml[i].replace('page back','page front');
+    let back=pageHtml[i+1].replace('page front','page back');
+    leaves.push(`<div class="leaf" data-leaf="${i/2}" style="z-index:${999-i}">${front}${back}</div>`);
+  }
+  $('#flipbook').innerHTML=leaves.join('');
+  totalBookLeaves=leaves.length;
+  currentBookLeaf=0;
+  wireLeaves();
+  updateBookState();
+}
+
+function wireLeaves(){
+  $('#flipbook').querySelectorAll('.leaf').forEach((leaf,i)=>leaf.addEventListener('click',e=>{
+    if(e.target.closest('a')) return;
+    if(i<currentBookLeaf) turnBook(-1); else if(i===currentBookLeaf) turnBook(1);
+  }));
+}
+
+function updateBookState(){
+  const leaves=[...$('#flipbook').querySelectorAll('.leaf')];
+  leaves.forEach((leaf,i)=>{
+    const flipped=i<currentBookLeaf;leaf.classList.toggle('flipped',flipped);leaf.style.zIndex=flipped?String(i+1):String(1000-i);
+  });
+  $('#flipbook').classList.toggle('open',currentBookLeaf>0&&currentBookLeaf<totalBookLeaves);
+  $('#flipbook').classList.toggle('finished',currentBookLeaf===totalBookLeaves);
+  $('#bookPrev').disabled=currentBookLeaf===0;$('#bookNext').disabled=currentBookLeaf===totalBookLeaves;
+  $('#bookCurrent').textContent=currentBookLeaf===0?'Cover':currentBookLeaf===totalBookLeaves?'End':`Spread ${currentBookLeaf}`;
+  $('#bookTotal').textContent=totalBookLeaves;
+  if(currentBookLeaf>0) $('#bookHint').classList.add('hide');
+}
+
+function turnBook(delta){currentBookLeaf=Math.max(0,Math.min(totalBookLeaves,currentBookLeaf+delta));updateBookState()}
+
+function resetFilters(){
+  $('#searchInput').value='';$('#vaccineSelect').value='';$('#stateSelect').value='';$('#routeSelect').value='';$('#maxPriceInput').value='';applyFilters();
+}
+
+function switchView(name){
+  document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
+  $('#mapView').classList.toggle('active',name==='map');$('#bookView').classList.toggle('active',name==='book');
+  if(name==='map'&&map) setTimeout(()=>map.resize(),60);
+}
+
+function resizeBook(){
+  const space=$('.book-space');if(!space) return;
+  const scale=Math.min(1,(space.clientWidth-28)/840,(space.clientHeight-28)/580);$('#bookZoom').style.transform=`scale(${Math.max(.48,scale)})`;
+}
+
+fillVaccineSelects();fillStates();applyFilters();resizeBook();
+window.addEventListener('resize',resizeBook);
+
+document.querySelectorAll('.mode').forEach(btn=>btn.addEventListener('click',()=>switchView(btn.dataset.view)));
+['searchInput','vaccineSelect','stateSelect','routeSelect','maxPriceInput'].forEach(id=>$('#'+id).addEventListener(id==='searchInput'||id==='maxPriceInput'?'input':'change',applyFilters));
+$('#resetFilters').addEventListener('click',resetFilters);
+$('#bookVaccineSelect').addEventListener('change',rebuildBook);
+$('#bookPrev').addEventListener('click',()=>turnBook(-1));$('#bookNext').addEventListener('click',()=>turnBook(1));
+$('#mapSettings').addEventListener('click',()=>$('#keybox').classList.toggle('hidden'));$('#closeKey').addEventListener('click',()=>$('#keybox').classList.add('hidden'));
+$('#saveKey').addEventListener('click',()=>{const key=$('#keyInput').value.trim();if(!key)return;localStorage.setItem('vax_registry_maptiler_key',key);location.reload()});
+
+document.addEventListener('keydown',e=>{if($('#bookView').classList.contains('active')){if(e.key==='ArrowRight')turnBook(1);if(e.key==='ArrowLeft')turnBook(-1)}});
+</script>
+</body>
+</html>

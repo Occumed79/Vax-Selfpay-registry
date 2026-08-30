@@ -1,0 +1,18 @@
+{
+  "name": "vax-selfpay-registry",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Occu-Med vaccine self-pay price registry with MapTiler, Render, and Neon Postgres",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "pg": "^8.13.1"
+  }
+}
