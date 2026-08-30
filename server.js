@@ -8,7 +8,9 @@ const { Pool } = require('pg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HTML_FILE = path.join(__dirname, 'Vaccine_Self_Pay_Registry.html');
+const SCHEMA_FILE = path.join(__dirname, 'db', 'schema.sql');
 const htmlTemplate = fs.readFileSync(HTML_FILE, 'utf8');
+const schemaSql = fs.readFileSync(SCHEMA_FILE, 'utf8');
 
 if (!process.env.DATABASE_URL) {
   console.warn('DATABASE_URL is not set. The registry will load with its embedded empty dataset until Neon is configured.');
@@ -23,6 +25,12 @@ const pool = process.env.DATABASE_URL
       connectionTimeoutMillis: 10000,
     })
   : null;
+
+async function initializeDatabase() {
+  if (!pool) return;
+  await pool.query(schemaSql);
+  console.log('Vaccine registry schema verified in Neon.');
+}
 
 function num(value) {
   return value == null ? null : Number(value);
@@ -229,12 +237,26 @@ app.get('/Vaccine_Self_Pay_Registry.html', serveRegistry);
 app.get('/favicon.ico', (_req, res) => res.status(204).end());
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Vaccine Self-Pay Registry listening on port ${PORT}`);
-});
+let server = null;
+
+async function start() {
+  try {
+    await initializeDatabase();
+  } catch (error) {
+    console.error('Unable to initialize Neon vaccine schema:', error.message);
+  }
+
+  server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Vaccine Self-Pay Registry listening on port ${PORT}`);
+  });
+}
 
 async function shutdown(signal) {
   console.log(`${signal} received; shutting down.`);
+  if (!server) {
+    if (pool) await pool.end().catch(() => {});
+    process.exit(0);
+  }
   server.close(async () => {
     if (pool) await pool.end().catch(() => {});
     process.exit(0);
@@ -243,3 +265,5 @@ async function shutdown(signal) {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+start();
