@@ -9,8 +9,10 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HTML_FILE = path.join(__dirname, 'Vaccine_Self_Pay_Registry.html');
 const SCHEMA_FILE = path.join(__dirname, 'db', 'schema.sql');
+const SEED_FILE = path.join(__dirname, 'db', 'seed_private_prices.sql');
 const htmlTemplate = fs.readFileSync(HTML_FILE, 'utf8');
 const schemaSql = fs.readFileSync(SCHEMA_FILE, 'utf8');
+const seedSql = fs.existsSync(SEED_FILE) ? fs.readFileSync(SEED_FILE, 'utf8') : '';
 
 if (!process.env.DATABASE_URL) {
   console.warn('DATABASE_URL is not set. The registry will load with its embedded empty dataset until Neon is configured.');
@@ -30,6 +32,11 @@ async function initializeDatabase() {
   if (!pool) return;
   await pool.query(schemaSql);
   console.log('Vaccine registry schema verified in Neon.');
+
+  if (seedSql.trim()) {
+    const result = await pool.query(seedSql);
+    console.log(`Private vaccine price seed applied to Neon (${result.rowCount ?? 0} new rows on this boot).`);
+  }
 }
 
 function num(value) {
@@ -158,8 +165,18 @@ app.get('/health', async (_req, res) => {
     if (!pool) {
       return res.status(200).json({ ok: true, database: 'not-configured', service: 'vaccine-self-pay-registry' });
     }
-    await pool.query('SELECT 1');
-    res.json({ ok: true, database: 'connected', service: 'vaccine-self-pay-registry' });
+    const { rows } = await pool.query(`
+      SELECT COUNT(*)::int AS price_count,
+             COUNT(DISTINCT provider)::int AS provider_count
+      FROM vaccine_prices
+    `);
+    res.json({
+      ok: true,
+      database: 'connected',
+      service: 'vaccine-self-pay-registry',
+      price_count: rows[0].price_count,
+      provider_count: rows[0].provider_count,
+    });
   } catch (error) {
     res.status(503).json({ ok: false, database: 'error', message: error.message });
   }
@@ -243,7 +260,7 @@ async function start() {
   try {
     await initializeDatabase();
   } catch (error) {
-    console.error('Unable to initialize Neon vaccine schema:', error.message);
+    console.error('Unable to initialize Neon vaccine schema/data:', error.message);
   }
 
   server = app.listen(PORT, '0.0.0.0', () => {
