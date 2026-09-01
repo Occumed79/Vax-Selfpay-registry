@@ -59,12 +59,14 @@ Set these on the Render service:
 
 ## Neon database
 
-Run `db/schema.sql` in the Neon SQL editor for the database used by `DATABASE_URL`.
+On startup, the server automatically executes `db/schema.sql` and then `db/seed_private_prices.sql` against the configured `DATABASE_URL`.
 
 The schema creates:
 
 - `vaccine_catalog` — the controlled vaccine list used by the registry
 - `vaccine_prices` — posted self-pay price records, clinic/location details, fees, contact data, geocodes, and source evidence
+
+The private-price seed is idempotent and uses duplicate protection, so redeploying the service safely applies newly committed price rows without duplicating existing provider/vaccine/source/price combinations.
 
 The price stored in `vaccine_prices.price` is the primary posted vaccine price. Separate fields are available for administration, consultation, other fees, and a posted total so the source can be represented without collapsing unlike charges into one number.
 
@@ -75,7 +77,7 @@ The price stored in `vaccine_prices.price` is the primary posted vaccine price. 
 - `/api/locations` — live Neon-backed vaccine price rows
 - `/api/vaccines` — controlled vaccine taxonomy
 - `/api/stats` — registry totals and price statistics
-- `/health` — Render health check and database connectivity state
+- `/health` — Render health check and database connectivity state, including live price/provider counts
 
 ## Frontend structure
 
