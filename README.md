@@ -86,6 +86,7 @@ The CDC reference shows CDC contract prices and manufacturer-reported private-se
 
 - `/` — Vaccine Self-Pay Registry
 - `/catalogue` — same application entry point
+- `/cdc-prices` — opens the registry directly on the live CDC Adult Vaccine Price List section
 - `/api/locations` — live Neon-backed vaccine price rows
 - `/api/cdc-prices` — current CDC Adult Vaccine Price List metadata
 - `/api/cdc-prices/pdf` — current CDC Adult Vaccine Price List PDF proxy
@@ -95,10 +96,11 @@ The CDC reference shows CDC contract prices and manufacturer-reported private-se
 
 ## Frontend structure
 
-`Vaccine_Self_Pay_Registry.html` preserves the two-part registry structure:
+`Vaccine_Self_Pay_Registry.html` has three separate data views:
 
 1. **Map** — search and filter by vaccine, state, route, maximum price, provider, city, and brand. Pins group matching price records by clinic location.
 2. **E-Catalogue** — a page-turning catalogue built from the same filtered records, with provider, location, vaccine/brand, price basis, additional posted fees, contact information, and direct source evidence.
+3. **CDC Prices** — the live CDC Adult Vaccine Price List, kept visually and analytically separate from clinic self-pay prices and refreshed automatically from the CDC source page.
 
 The HTML contains an empty fallback dataset. When Neon is connected, `server.js` injects the current database rows into the application at request time.
 
