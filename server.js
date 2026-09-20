@@ -42,12 +42,11 @@ function htmlToText(value) {
 }
 
 function nearestCdcDate(html, pdfMatchIndex) {
-  const start = Math.max(0, pdfMatchIndex - 2500);
-  const end = Math.min(html.length, pdfMatchIndex + 2500);
-  const text = htmlToText(html.slice(start, end));
-  const dates = [...text.matchAll(/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2},\s+\d{4}\b/gi)]
-    .map((m) => m[0]);
-  return dates.length ? dates[0] : null;
+  const datePattern = /\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2},\s+\d{4}\b/i;
+  const after = htmlToText(html.slice(pdfMatchIndex, Math.min(html.length, pdfMatchIndex + 2200))).match(datePattern);
+  if (after) return after[0];
+  const before = htmlToText(html.slice(Math.max(0, pdfMatchIndex - 2200), pdfMatchIndex)).match(datePattern);
+  return before ? before[0] : null;
 }
 
 async function refreshCdcAdultPriceSource(force = false) {
