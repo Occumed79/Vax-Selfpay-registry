@@ -148,7 +148,11 @@ function parseStatePage(html, stateSlug) {
     }
   });
 
-  if (!resultTable) throw new Error('CDC Yellow Fever registry table was not found.');
+  const bodyText = clean($('body').text());
+  if (!resultTable) {
+    if (/There are\s+0\s+result/i.test(bodyText)) return [];
+    throw new Error('CDC Yellow Fever registry table was not found.');
+  }
 
   const sourceUrl = `${CDC_YF_BASE}/state/${stateSlug}`;
   const records = [];
@@ -171,7 +175,10 @@ function parseStatePage(html, stateSlug) {
     records.push(record);
   });
 
-  if (!records.length) throw new Error(`CDC returned zero parsed Yellow Fever clinics for ${stateSlug}.`);
+  if (!records.length) {
+    if (/There are\s+0\s+result/i.test(bodyText)) return [];
+    throw new Error(`CDC returned zero parsed Yellow Fever clinics for ${stateSlug}.`);
+  }
 
   const unique = new Map();
   for (const record of records) {
