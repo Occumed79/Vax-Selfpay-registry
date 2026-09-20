@@ -14,7 +14,8 @@ const htmlTemplate = fs.readFileSync(HTML_FILE, 'utf8');
 const schemaSql = fs.readFileSync(SCHEMA_FILE, 'utf8');
 const seedSql = fs.existsSync(SEED_FILE) ? fs.readFileSync(SEED_FILE, 'utf8') : '';
 
-const CDC_ADULT_PRICE_PAGE_URL = 'https://www.cdc.gov/vaccines-for-children/php/price-list/index.html';
+const CDC_ADULT_PRICE_PAGE_URL = 'https://www.cdc.gov/vaccines-for-children/php/price-list/index.html#cdc_generic_section_2-adult-vaccine-price-list';
+const CDC_ADULT_FETCH_URL = 'https://www.cdc.gov/vaccines-for-children/php/price-list/index.html';
 const CDC_ADULT_FALLBACK_PDF_URL = 'https://www.cdc.gov/vaccines-for-children/media/pdfs/2026/07/Adult-Vaccine-Price-List-08-03-26.pdf';
 const CDC_REFRESH_MS = 60 * 60 * 1000;
 
@@ -54,7 +55,7 @@ async function refreshCdcAdultPriceSource(force = false) {
   if (!force && lastCheck && Date.now() - lastCheck < CDC_REFRESH_MS) return cdcAdultPriceCache;
 
   try {
-    const response = await fetch(CDC_ADULT_PRICE_PAGE_URL, {
+    const response = await fetch(CDC_ADULT_FETCH_URL, {
       headers: {
         'user-agent': 'Occu-Med Vaccine Self-Pay Registry/1.0 (+CDC price reference)',
         accept: 'text/html,application/xhtml+xml',
@@ -69,7 +70,7 @@ async function refreshCdcAdultPriceSource(force = false) {
 
     const match = matches[0];
     const href = match[1].replace(/&amp;/gi, '&');
-    const pdfUrl = new URL(href, CDC_ADULT_PRICE_PAGE_URL).toString();
+    const pdfUrl = new URL(href, CDC_ADULT_FETCH_URL).toString();
     const listDate = nearestCdcDate(html, match.index || 0) || cdcAdultPriceCache.listDate;
 
     cdcAdultPriceCache = {
@@ -368,6 +369,7 @@ async function serveRegistry(_req, res) {
 
 app.get('/', serveRegistry);
 app.get('/catalogue', serveRegistry);
+app.get('/cdc-prices', serveRegistry);
 app.get('/Vaccine_Self_Pay_Registry.html', serveRegistry);
 
 app.get('/favicon.ico', (_req, res) => res.status(204).end());
