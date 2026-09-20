@@ -30,9 +30,12 @@ function clean(value) {
 }
 
 function providerKey(record) {
-  const streetNumber = (record.address.match(/^\s*(\d+[A-Za-z-]*)/) || [,''])[1].toLowerCase();
   const identity = [
-    record.facilityName, record.city, record.stateCode, record.zip, streetNumber
+    record.facilityName,
+    record.address,
+    record.city,
+    record.stateCode,
+    record.zip
   ].map(v => clean(v).toLowerCase()).join('|');
   return crypto.createHash('sha256').update(identity).digest('hex');
 }
@@ -169,7 +172,22 @@ function parseStatePage(html, stateSlug) {
   });
 
   if (!records.length) throw new Error(`CDC returned zero parsed Yellow Fever clinics for ${stateSlug}.`);
-  return records;
+
+  const unique = new Map();
+  for (const record of records) {
+    const prior = unique.get(record.providerKey);
+    if (!prior) {
+      unique.set(record.providerKey, record);
+      continue;
+    }
+    if (!prior.website && record.website) prior.website = record.website;
+    if (!prior.phone && record.phone) prior.phone = record.phone;
+    prior.seesUnder18 = prior.seesUnder18 || record.seesUnder18;
+    prior.limitedAccess = prior.limitedAccess || record.limitedAccess;
+    if (!prior.accessNote && record.accessNote) prior.accessNote = record.accessNote;
+    prior.sourceHash = sourceHash(prior);
+  }
+  return [...unique.values()];
 }
 
 function fetchTextIpv4(url, redirects = 0) {
