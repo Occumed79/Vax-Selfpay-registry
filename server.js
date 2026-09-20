@@ -4,6 +4,17 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
+const {
+  CDC_YF_SEARCH_URL,
+  CDC_YF_REFRESH_MS,
+  STATE_SLUGS,
+  ensureTables: ensureYellowFeverTables,
+  syncState: syncYellowFeverState,
+  syncAll: syncAllYellowFever,
+  stateNeedsRefresh: yellowFeverStateNeedsRefresh,
+  queryCenters: queryYellowFeverCenters,
+  status: yellowFeverStatus,
+} = require('./cdc_yellow_fever');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -262,6 +273,93 @@ app.get('/health', async (_req, res) => {
   }
 });
 
+app.get('/api/cdc-yellow-fever/states', (_req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600');
+  res.json({
+    sourceUrl: CDC_YF_SEARCH_URL,
+    states: Object.entries(STATE_SLUGS).map(([label, slug]) => ({ label, slug })),
+  });
+});
+
+app.get('/api/cdc-yellow-fever/status', async (_req, res) => {
+  try {
+    if (!pool) return res.status(503).json({ error: 'DATABASE_URL is not configured' });
+    const summary = await yellowFeverStatus(pool);
+    res.set('Cache-Control', 'no-store');
+    res.json({ ...summary, sourceUrl: CDC_YF_SEARCH_URL, refreshHours: CDC_YF_REFRESH_MS / 3600000 });
+  } catch (error) {
+    console.error('GET /api/cdc-yellow-fever/status failed:', error);
+    res.status(500).json({ error: 'Unable to load CDC Yellow Fever sync status', detail: error.message });
+  }
+});
+
+app.get('/api/cdc-yellow-fever', async (req, res) => {
+  try {
+    if (!pool) return res.status(503).json({ error: 'DATABASE_URL is not configured' });
+    const stateSlug = String(req.query.state || '').trim().toLowerCase();
+    const force = req.query.refresh === '1';
+    const q = String(req.query.q || '').trim();
+
+    if (stateSlug && !Object.values(STATE_SLUGS).includes(stateSlug)) {
+      return res.status(400).json({ error: 'Unknown state or territory slug' });
+    }
+
+    let sync = null;
+    if (stateSlug) {
+      if (force || await yellowFeverStateNeedsRefresh(pool, stateSlug)) {
+        sync = await syncYellowFeverState(pool, stateSlug);
+      }
+    } else if (force) {
+      syncAllYellowFever(pool).catch(error => console.warn('Manual full CDC Yellow Fever refresh failed:', error.message));
+    }
+
+    const centers = await queryYellowFeverCenters(pool, { stateSlug, q, limit: 20000 });
+    const summary = await yellowFeverStatus(pool);
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      sourceUrl: CDC_YF_SEARCH_URL,
+      state: stateSlug || null,
+      count: centers.length,
+      centers,
+      status: summary,
+      sync,
+    });
+  } catch (error) {
+    console.error('GET /api/cdc-yellow-fever failed:', error);
+    res.status(502).json({ error: 'Unable to load the CDC Yellow Fever registry', detail: error.message });
+  }
+});
+
+app.get('/api/cdc-yellow-fever/changes', async (req, res) => {
+  try {
+    if (!pool) return res.status(503).json({ error: 'DATABASE_URL is not configured' });
+    await ensureYellowFeverTables(pool);
+    const stateSlug = String(req.query.state || '').trim().toLowerCase();
+    const values = [];
+    let where = '';
+    if (stateSlug) {
+      values.push(stateSlug);
+      where = 'WHERE h.state_slug=$1';
+    }
+    values.push(200);
+    const limitParam = values.length;
+    const { rows } = await pool.query(`
+      SELECT h.change_type,h.detected_at,h.state_slug,
+             c.facility_name,c.address,c.city,c.state_code,c.zip,c.cdc_active,c.source_url
+      FROM cdc_yellow_fever_changes h
+      LEFT JOIN cdc_yellow_fever_centers c USING(provider_key)
+      ${where}
+      ORDER BY h.detected_at DESC,c.facility_name
+      LIMIT ${limitParam}
+    `, values);
+    res.set('Cache-Control', 'no-store');
+    res.json(rows);
+  } catch (error) {
+    console.error('GET /api/cdc-yellow-fever/changes failed:', error);
+    res.status(500).json({ error: 'Unable to load CDC Yellow Fever change history', detail: error.message });
+  }
+});
+
 app.get('/api/cdc-prices', async (req, res) => {
   const meta = await refreshCdcAdultPriceSource(req.query.refresh === '1');
   res.set('Cache-Control', 'no-store');
@@ -385,11 +483,36 @@ async function start() {
   }
 
   refreshCdcAdultPriceSource(true).catch((error) => console.warn('Initial CDC refresh failed:', error.message));
+
+  if (pool) {
+    ensureYellowFeverTables(pool)
+      .then(() => yellowFeverStatus(pool))
+      .then((summary) => {
+        if (!summary.synced_states || Number(summary.synced_states) < 40) {
+          return syncAllYellowFever(pool);
+        }
+        return null;
+      })
+      .then((result) => {
+        if (result) console.log(`CDC Yellow Fever initial sync completed: ${result.records} centers across ${result.statesCompleted} states/territories.`);
+      })
+      .catch((error) => console.warn('Initial CDC Yellow Fever sync failed:', error.message));
+  }
   const cdcRefreshTimer = setInterval(
     () => refreshCdcAdultPriceSource(true).catch((error) => console.warn('Scheduled CDC refresh failed:', error.message)),
     CDC_REFRESH_MS
   );
   if (typeof cdcRefreshTimer.unref === 'function') cdcRefreshTimer.unref();
+
+  if (pool) {
+    const yellowFeverRefreshTimer = setInterval(
+      () => syncAllYellowFever(pool)
+        .then(result => console.log(`Scheduled CDC Yellow Fever sync: ${result.records} centers across ${result.statesCompleted} states/territories.`))
+        .catch(error => console.warn('Scheduled CDC Yellow Fever sync failed:', error.message)),
+      CDC_YF_REFRESH_MS
+    );
+    if (typeof yellowFeverRefreshTimer.unref === 'function') yellowFeverRefreshTimer.unref();
+  }
 
   server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Vaccine Self-Pay Registry listening on port ${PORT}`);
