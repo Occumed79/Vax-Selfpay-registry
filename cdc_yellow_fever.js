@@ -9,18 +9,21 @@ const CDC_YF_REFRESH_MS = 6 * 60 * 60 * 1000;
 const STATE_SLUGS = {
   Alabama:'alabama', Alaska:'alaska', Arizona:'arizona', Arkansas:'arkansas', California:'california',
   Colorado:'colorado', Connecticut:'connecticut', Delaware:'delaware',
-  'District of Columbia':'district-of-columbia', Florida:'florida', Georgia:'georgia', Hawaii:'hawaii',
+  'District of Columbia':'district-of-columbia', 'Federated States of Micronesia':'federated-states-of-micronesia',
+  Florida:'florida', Georgia:'georgia', Hawaii:'hawaii',
   Idaho:'idaho', Illinois:'illinois', Indiana:'indiana', Iowa:'iowa', Kansas:'kansas', Kentucky:'kentucky',
-  Louisiana:'louisiana', Maine:'maine', Maryland:'maryland', Massachusetts:'massachusetts', Michigan:'michigan',
+  Louisiana:'louisiana', Maine:'maine', 'Marshall Islands':'marshall-islands', Maryland:'maryland',
+  Massachusetts:'massachusetts', Michigan:'michigan',
   Minnesota:'minnesota', Mississippi:'mississippi', Missouri:'missouri', Montana:'montana', Nebraska:'nebraska',
-  Nevada:'nevada', 'New Hampshire':'new-hampshire', 'New Jersey':'new-jersey', 'New Mexico':'new-mexico',
+  'N. Mariana Islands':'n-mariana-islands', Nevada:'nevada', 'New Hampshire':'new-hampshire',
+  'New Jersey':'new-jersey', 'New Mexico':'new-mexico',
   'New York':'new-york', 'North Carolina':'north-carolina', 'North Dakota':'north-dakota', Ohio:'ohio',
-  Oklahoma:'oklahoma', Oregon:'oregon', Pennsylvania:'pennsylvania', 'Rhode Island':'rhode-island',
+  Oklahoma:'oklahoma', Oregon:'oregon', Palau:'palau', Pennsylvania:'pennsylvania', 'Rhode Island':'rhode-island',
   'South Carolina':'south-carolina', 'South Dakota':'south-dakota', Tennessee:'tennessee', Texas:'texas',
+  'U.S. Minor Outlying Islands':'us-minor-outlying-islands',
   Utah:'utah', Vermont:'vermont', Virginia:'virginia', Washington:'washington', 'West Virginia':'west-virginia',
   Wisconsin:'wisconsin', Wyoming:'wyoming', 'Puerto Rico':'puerto-rico', Guam:'guam',
-  'U.S. Virgin Islands':'virgin-islands', 'American Samoa':'american-samoa',
-  'Northern Mariana Islands':'northern-mariana-islands'
+  'Virgin Islands':'virgin-islands', 'American Samoa':'american-samoa'
 };
 
 const SLUG_TO_LABEL = Object.fromEntries(Object.entries(STATE_SLUGS).map(([label, slug]) => [slug, label]));
@@ -150,7 +153,7 @@ function parseStatePage(html, stateSlug) {
 
   const bodyText = clean($('body').text());
   if (!resultTable) {
-    if (/There are\s+0\s+result/i.test(bodyText)) return [];
+    if (/There are\s+(?:0\s+result|no results)/i.test(bodyText)) return [];
     throw new Error('CDC Yellow Fever registry table was not found.');
   }
 
@@ -176,7 +179,7 @@ function parseStatePage(html, stateSlug) {
   });
 
   if (!records.length) {
-    if (/There are\s+0\s+result/i.test(bodyText)) return [];
+    if (/There are\s+(?:0\s+result|no results)/i.test(bodyText)) return [];
     throw new Error(`CDC returned zero parsed Yellow Fever clinics for ${stateSlug}.`);
   }
 
