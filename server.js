@@ -14,6 +14,86 @@ const htmlTemplate = fs.readFileSync(HTML_FILE, 'utf8');
 const schemaSql = fs.readFileSync(SCHEMA_FILE, 'utf8');
 const seedSql = fs.existsSync(SEED_FILE) ? fs.readFileSync(SEED_FILE, 'utf8') : '';
 
+const CDC_ADULT_PRICE_PAGE_URL = 'https://www.cdc.gov/vaccines-for-children/php/price-list/index.html';
+const CDC_ADULT_FALLBACK_PDF_URL = 'https://www.cdc.gov/vaccines-for-children/media/pdfs/2026/07/Adult-Vaccine-Price-List-08-03-26.pdf';
+const CDC_REFRESH_MS = 60 * 60 * 1000;
+
+let cdcAdultPriceCache = {
+  pageUrl: CDC_ADULT_PRICE_PAGE_URL,
+  pdfUrl: CDC_ADULT_FALLBACK_PDF_URL,
+  listDate: 'July 29, 2026',
+  checkedAt: null,
+  discoveredAt: null,
+  source: 'fallback',
+  error: null,
+};
+
+function htmlToText(value) {
+  return String(value || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function nearestCdcDate(html, pdfMatchIndex) {
+  const start = Math.max(0, pdfMatchIndex - 2500);
+  const end = Math.min(html.length, pdfMatchIndex + 2500);
+  const text = htmlToText(html.slice(start, end));
+  const dates = [...text.matchAll(/\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2},\s+\d{4}\b/gi)]
+    .map((m) => m[0]);
+  return dates.length ? dates[0] : null;
+}
+
+async function refreshCdcAdultPriceSource(force = false) {
+  const lastCheck = cdcAdultPriceCache.checkedAt ? Date.parse(cdcAdultPriceCache.checkedAt) : 0;
+  if (!force && lastCheck && Date.now() - lastCheck < CDC_REFRESH_MS) return cdcAdultPriceCache;
+
+  try {
+    const response = await fetch(CDC_ADULT_PRICE_PAGE_URL, {
+      headers: {
+        'user-agent': 'Occu-Med Vaccine Self-Pay Registry/1.0 (+CDC price reference)',
+        accept: 'text/html,application/xhtml+xml',
+      },
+      redirect: 'follow',
+    });
+    if (!response.ok) throw new Error(`CDC page returned HTTP ${response.status}`);
+
+    const html = await response.text();
+    const matches = [...html.matchAll(/href=["']([^"']*Adult-Vaccine-Price-List[^"']*\.pdf(?:\?[^"']*)?)["']/gi)];
+    if (!matches.length) throw new Error('Current Adult Vaccine Price List PDF link was not found on the CDC page.');
+
+    const match = matches[0];
+    const href = match[1].replace(/&amp;/gi, '&');
+    const pdfUrl = new URL(href, CDC_ADULT_PRICE_PAGE_URL).toString();
+    const listDate = nearestCdcDate(html, match.index || 0) || cdcAdultPriceCache.listDate;
+
+    cdcAdultPriceCache = {
+      pageUrl: CDC_ADULT_PRICE_PAGE_URL,
+      pdfUrl,
+      listDate,
+      checkedAt: new Date().toISOString(),
+      discoveredAt: new Date().toISOString(),
+      source: 'cdc',
+      error: null,
+    };
+  } catch (error) {
+    cdcAdultPriceCache = {
+      ...cdcAdultPriceCache,
+      checkedAt: new Date().toISOString(),
+      error: error.message,
+    };
+    console.warn('CDC adult vaccine price refresh failed; using last-known document:', error.message);
+  }
+
+  return cdcAdultPriceCache;
+}
+
 if (!process.env.DATABASE_URL) {
   console.warn('DATABASE_URL is not set. The registry will load with its embedded empty dataset until Neon is configured.');
 }
@@ -182,6 +262,46 @@ app.get('/health', async (_req, res) => {
   }
 });
 
+app.get('/api/cdc-prices', async (req, res) => {
+  const meta = await refreshCdcAdultPriceSource(req.query.refresh === '1');
+  res.set('Cache-Control', 'no-store');
+  res.json({
+    title: 'CDC Adult Vaccine Price List',
+    description: 'Official CDC adult vaccine contract and manufacturer-reported private-sector price list.',
+    pageUrl: meta.pageUrl,
+    pdfUrl: meta.pdfUrl,
+    listDate: meta.listDate,
+    checkedAt: meta.checkedAt,
+    discoveredAt: meta.discoveredAt,
+    source: meta.source,
+    error: meta.error,
+    autoRefreshMinutes: Math.round(CDC_REFRESH_MS / 60000),
+  });
+});
+
+app.get('/api/cdc-prices/pdf', async (_req, res) => {
+  try {
+    const meta = await refreshCdcAdultPriceSource(false);
+    const upstream = await fetch(meta.pdfUrl, {
+      headers: {
+        'user-agent': 'Occu-Med Vaccine Self-Pay Registry/1.0 (+CDC price reference)',
+        accept: 'application/pdf,*/*;q=0.8',
+      },
+      redirect: 'follow',
+    });
+    if (!upstream.ok) throw new Error(`CDC PDF returned HTTP ${upstream.status}`);
+    const contentType = upstream.headers.get('content-type') || 'application/pdf';
+    const bytes = Buffer.from(await upstream.arrayBuffer());
+    res.set('Content-Type', contentType.includes('pdf') ? contentType : 'application/pdf');
+    res.set('Content-Disposition', 'inline; filename="CDC-Adult-Vaccine-Price-List.pdf"');
+    res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=21600');
+    res.send(bytes);
+  } catch (error) {
+    console.error('Unable to proxy CDC adult vaccine price PDF:', error.message);
+    res.status(502).json({ error: 'Unable to load the current CDC Adult Vaccine Price List', detail: error.message });
+  }
+});
+
 app.get('/api/locations', async (_req, res) => {
   try {
     const locations = await getLocations();
@@ -262,6 +382,13 @@ async function start() {
   } catch (error) {
     console.error('Unable to initialize Neon vaccine schema/data:', error.message);
   }
+
+  refreshCdcAdultPriceSource(true).catch((error) => console.warn('Initial CDC refresh failed:', error.message));
+  const cdcRefreshTimer = setInterval(
+    () => refreshCdcAdultPriceSource(true).catch((error) => console.warn('Scheduled CDC refresh failed:', error.message)),
+    CDC_REFRESH_MS
+  );
+  if (typeof cdcRefreshTimer.unref === 'function') cdcRefreshTimer.unref();
 
   server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Vaccine Self-Pay Registry listening on port ${PORT}`);
