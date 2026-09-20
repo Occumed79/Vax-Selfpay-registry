@@ -252,11 +252,11 @@ async function syncState(pool, stateSlug) {
       [stateSlug]
     );
     const existing = new Map(existingResult.rows.map(row => [row.provider_key, row]));
-    const seen = [];
+    const seen = new Set(records.map(record => record.providerKey));
     const changes = { added:0, updated:0, reactivated:0, removed:0 };
+    const changeRows = [];
 
     for (const record of records) {
-      seen.push(record.providerKey);
       const prior = existing.get(record.providerKey);
       let changeType = '';
       let previousHash = '';
@@ -266,36 +266,93 @@ async function syncState(pool, stateSlug) {
         if (!prior.cdc_active) changeType = 'reactivated';
         else if (previousHash !== record.sourceHash) changeType = 'updated';
       }
-
-      await client.query(`
-        INSERT INTO cdc_yellow_fever_centers(
-          provider_key,state_slug,state_label,facility_name,address,city,state_code,zip,phone,county,website,
-          sees_under_18,limited_access,access_note,source_url,source_hash,cdc_active,first_seen_at,last_seen_at,last_checked_at
-        ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,TRUE,$17,$17,$17)
-        ON CONFLICT(provider_key) DO UPDATE SET
-          state_slug=EXCLUDED.state_slug,state_label=EXCLUDED.state_label,facility_name=EXCLUDED.facility_name,
-          address=EXCLUDED.address,city=EXCLUDED.city,state_code=EXCLUDED.state_code,zip=EXCLUDED.zip,
-          phone=EXCLUDED.phone,county=EXCLUDED.county,website=EXCLUDED.website,
-          sees_under_18=EXCLUDED.sees_under_18,limited_access=EXCLUDED.limited_access,
-          access_note=EXCLUDED.access_note,source_url=EXCLUDED.source_url,source_hash=EXCLUDED.source_hash,
-          cdc_active=TRUE,last_seen_at=EXCLUDED.last_seen_at,last_checked_at=EXCLUDED.last_checked_at
-      `, [
-        record.providerKey,record.stateSlug,record.stateLabel,record.facilityName,record.address,record.city,
-        record.stateCode,record.zip,record.phone,record.county,record.website,record.seesUnder18,
-        record.limitedAccess,record.accessNote,record.sourceUrl,record.sourceHash,now
-      ]);
-
       if (changeType) {
         changes[changeType] += 1;
-        await client.query(`
-          INSERT INTO cdc_yellow_fever_changes(provider_key,state_slug,change_type,detected_at,previous_hash,current_hash)
-          VALUES($1,$2,$3,$4,$5,$6)
-        `, [record.providerKey,stateSlug,changeType,now,previousHash,record.sourceHash]);
+        changeRows.push({
+          provider_key: record.providerKey,
+          state_slug: stateSlug,
+          change_type: changeType,
+          previous_hash: previousHash,
+          current_hash: record.sourceHash
+        });
       }
     }
 
+    const payload = records.map(record => ({
+      provider_key: record.providerKey,
+      state_slug: record.stateSlug,
+      state_label: record.stateLabel,
+      facility_name: record.facilityName,
+      address: record.address,
+      city: record.city,
+      state_code: record.stateCode,
+      zip: record.zip,
+      phone: record.phone,
+      county: record.county,
+      website: record.website,
+      sees_under_18: record.seesUnder18,
+      limited_access: record.limitedAccess,
+      access_note: record.accessNote,
+      source_url: record.sourceUrl,
+      source_hash: record.sourceHash
+    }));
+
+    await client.query(`
+      WITH incoming AS (
+        SELECT *
+        FROM jsonb_to_recordset($1::jsonb) AS x(
+          provider_key TEXT,
+          state_slug TEXT,
+          state_label TEXT,
+          facility_name TEXT,
+          address TEXT,
+          city TEXT,
+          state_code TEXT,
+          zip TEXT,
+          phone TEXT,
+          county TEXT,
+          website TEXT,
+          sees_under_18 BOOLEAN,
+          limited_access BOOLEAN,
+          access_note TEXT,
+          source_url TEXT,
+          source_hash TEXT
+        )
+      )
+      INSERT INTO cdc_yellow_fever_centers(
+        provider_key,state_slug,state_label,facility_name,address,city,state_code,zip,phone,county,website,
+        sees_under_18,limited_access,access_note,source_url,source_hash,cdc_active,first_seen_at,last_seen_at,last_checked_at
+      )
+      SELECT provider_key,state_slug,state_label,facility_name,address,city,state_code,zip,phone,county,website,
+             sees_under_18,limited_access,access_note,source_url,source_hash,TRUE,$2,$2,$2
+      FROM incoming
+      ON CONFLICT(provider_key) DO UPDATE SET
+        state_slug=EXCLUDED.state_slug,state_label=EXCLUDED.state_label,facility_name=EXCLUDED.facility_name,
+        address=EXCLUDED.address,city=EXCLUDED.city,state_code=EXCLUDED.state_code,zip=EXCLUDED.zip,
+        phone=EXCLUDED.phone,county=EXCLUDED.county,website=EXCLUDED.website,
+        sees_under_18=EXCLUDED.sees_under_18,limited_access=EXCLUDED.limited_access,
+        access_note=EXCLUDED.access_note,source_url=EXCLUDED.source_url,source_hash=EXCLUDED.source_hash,
+        cdc_active=TRUE,last_seen_at=EXCLUDED.last_seen_at,last_checked_at=EXCLUDED.last_checked_at
+    `, [JSON.stringify(payload), now]);
+
+    if (changeRows.length) {
+      await client.query(`
+        INSERT INTO cdc_yellow_fever_changes(
+          provider_key,state_slug,change_type,detected_at,previous_hash,current_hash
+        )
+        SELECT provider_key,state_slug,change_type,$2,previous_hash,current_hash
+        FROM jsonb_to_recordset($1::jsonb) AS x(
+          provider_key TEXT,
+          state_slug TEXT,
+          change_type TEXT,
+          previous_hash TEXT,
+          current_hash TEXT
+        )
+      `, [JSON.stringify(changeRows), now]);
+    }
+
     const removed = [...existing.entries()]
-      .filter(([key, row]) => row.cdc_active && !seen.includes(key))
+      .filter(([key, row]) => row.cdc_active && !seen.has(key))
       .map(([key]) => key);
     if (removed.length) {
       changes.removed = removed.length;
