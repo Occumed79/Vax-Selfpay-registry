@@ -70,11 +70,25 @@ The private-price seed is idempotent and uses duplicate protection, so redeployi
 
 The price stored in `vaccine_prices.price` is the primary posted vaccine price. Separate fields are available for administration, consultation, other fees, and a posted total so the source can be represented without collapsing unlike charges into one number.
 
+## CDC adult price reference
+
+The app includes a separate **CDC Prices** view for the official CDC Adult Vaccine Price List. This reference is intentionally kept separate from clinic self-pay pricing.
+
+At runtime the server:
+- checks the CDC vaccine price-list page on startup and every 60 minutes,
+- discovers the current Adult Vaccine Price List PDF instead of hard-coding a permanent document,
+- serves the current PDF through `/api/cdc-prices/pdf`, and
+- exposes source metadata through `/api/cdc-prices`.
+
+The CDC reference shows CDC contract prices and manufacturer-reported private-sector prices. These are reference values and are not inserted into `vaccine_prices` as clinic self-pay records.
+
 ## Routes
 
 - `/` — Vaccine Self-Pay Registry
 - `/catalogue` — same application entry point
 - `/api/locations` — live Neon-backed vaccine price rows
+- `/api/cdc-prices` — current CDC Adult Vaccine Price List metadata
+- `/api/cdc-prices/pdf` — current CDC Adult Vaccine Price List PDF proxy
 - `/api/vaccines` — controlled vaccine taxonomy
 - `/api/stats` — registry totals and price statistics
 - `/health` — Render health check and database connectivity state, including live price/provider counts
