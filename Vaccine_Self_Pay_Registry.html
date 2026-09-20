@@ -64,6 +64,27 @@ button,input,select{font:inherit}button{cursor:pointer}a{text-decoration:none;co
 .cdc-error.show{display:block}
 @media(max-width:850px){.cdc-view{padding:8px}.cdc-head{border-radius:22px;padding:18px}.cdc-head-top{display:block}.cdc-actions{justify-content:flex-start;margin-top:14px}.cdc-meta-grid{grid-template-columns:1fr 1fr}.cdc-doc{border-radius:22px}#cdcPdf{height:70vh;min-height:560px}}
 
+/* CDC YELLOW FEVER LIVE REGISTRY */
+.yf-view{background:#eef1f3;padding:16px;overflow:auto}
+.yf-shell{max-width:1500px;margin:0 auto;display:grid;gap:14px}
+.yf-head{background:#fff;border:1px solid #dce1e4;border-radius:28px;padding:22px 24px;box-shadow:0 18px 50px rgba(28,40,50,.08)}
+.yf-head-top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+.yf-kicker{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:800;color:#7c6222}
+.yf-title{font-size:30px;line-height:1;letter-spacing:-.04em;margin:6px 0 8px;font-weight:850}
+.yf-copy{font-size:12px;line-height:1.55;color:#666a6e;max-width:850px}.yf-copy b{color:#26282b}
+.yf-actions{display:flex;gap:8px;flex-wrap:wrap}.yf-actions a,.yf-actions button{border:0;border-radius:999px;padding:10px 14px;font-size:10px;font-weight:780}.yf-actions a{background:#111;color:#fff}.yf-actions button{background:#edf0f2;color:#222}.yf-actions button:disabled{opacity:.5}
+.yf-controls{display:grid;grid-template-columns:minmax(220px,320px) minmax(260px,1fr);gap:10px;margin-top:18px}
+.yf-controls select,.yf-controls input{width:100%;border:1px solid #dfe2e5;background:#fff;border-radius:15px;padding:12px 13px;outline:none;color:#1d1e20}
+.yf-meta-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.yf-meta-card{background:#f6f8f9;border:1px solid #e3e7e9;border-radius:18px;padding:13px 14px}.yf-meta-card span{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.09em;color:#85888c;font-weight:800}.yf-meta-card b{display:block;margin-top:5px;font-size:13px;color:#25272a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.yf-results{background:#fff;border:1px solid #dce1e4;border-radius:28px;padding:18px;box-shadow:0 18px 50px rgba(28,40,50,.08)}
+.yf-result-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:0 4px 12px}.yf-result-head b{font-size:13px}.yf-result-head span{font-size:10px;color:#7a7d80}
+.yf-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.yf-card{border:1px solid #e2e5e7;border-radius:19px;padding:15px;background:#fff;min-width:0}.yf-card h3{font-size:13px;line-height:1.25;margin:0 0 6px}.yf-address{font-size:10px;line-height:1.45;color:#6f7276}.yf-card-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}.yf-pill{font-size:8px;font-weight:780;border-radius:999px;padding:5px 7px;background:#f0f2f3;color:#555}.yf-pill.good{background:#edf8ef;color:#25773a}.yf-pill.limit{background:#fff3df;color:#8b5f08}.yf-card-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:11px}.yf-card-links a{font-size:9px;color:#3375d2;font-weight:750}.yf-loading{padding:30px;text-align:center;color:#777b7f;font-size:12px}.yf-empty{padding:28px;text-align:center;border:1px dashed #d9dcde;border-radius:18px;color:#777b7f;font-size:11px;grid-column:1/-1}
+.yf-note{font-size:9px;color:#797c80;margin-top:10px;line-height:1.45}
+@media(max-width:1050px){.yf-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.yf-view{padding:8px}.yf-head,.yf-results{border-radius:22px}.yf-head-top{display:block}.yf-actions{margin-top:14px}.yf-controls{grid-template-columns:1fr}.yf-meta-grid{grid-template-columns:1fr 1fr}.yf-list{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -74,6 +95,7 @@ button,input,select{font:inherit}button{cursor:pointer}a{text-decoration:none;co
       <button class="mode active" data-view="map">Map</button>
       <button class="mode" data-view="book">E-Catalogue</button>
       <button class="mode" data-view="cdc">CDC Prices</button>
+      <button class="mode" data-view="yellow-fever">Yellow Fever Centers</button>
     </div>
     <div class="meta" id="topMeta">0 posted prices • 0 states</div>
   </header>
@@ -145,6 +167,40 @@ button,input,select{font:inherit}button{cursor:pointer}a{text-decoration:none;co
       </section>
     </div>
   </main>
+
+  <main class="view yf-view" id="yellowFeverView">
+    <div class="yf-shell">
+      <section class="yf-head">
+        <div class="yf-head-top">
+          <div>
+            <div class="yf-kicker">Official CDC registry • live connected source</div>
+            <div class="yf-title">Yellow Fever Vaccination Centers</div>
+            <div class="yf-copy"><b>CDC is the upstream authority for this directory.</b> The registry refreshes automatically and tracks additions, changes, and removals without turning CDC authorization into a self-pay price claim.</div>
+          </div>
+          <div class="yf-actions">
+            <a id="yfSourceLink" href="https://wwwnc.cdc.gov/travel/yellow-fever-vaccination-clinics/search" target="_blank" rel="noopener">CDC registry ↗</a>
+            <button id="yfRefresh" type="button">Refresh from CDC</button>
+          </div>
+        </div>
+        <div class="yf-controls">
+          <select id="yfStateSelect" aria-label="Yellow Fever state"><option value="">All states / territories</option></select>
+          <input id="yfSearchInput" type="search" placeholder="Search clinic, city, county, or ZIP…" autocomplete="off">
+        </div>
+        <div class="yf-meta-grid">
+          <div class="yf-meta-card"><span>Active CDC centers</span><b id="yfActiveCenters">—</b></div>
+          <div class="yf-meta-card"><span>States / territories synced</span><b id="yfSyncedStates">—</b></div>
+          <div class="yf-meta-card"><span>Last completed sync</span><b id="yfLastSync">—</b></div>
+          <div class="yf-meta-card"><span>Auto refresh</span><b id="yfRefreshRate">Every 6 hours</b></div>
+        </div>
+        <div class="cdc-error" id="yfError"></div>
+        <div class="yf-note">Selecting a state checks that CDC state registry directly when its cached copy is stale. “All states” uses the continuously refreshed national cache in Neon.</div>
+      </section>
+      <section class="yf-results">
+        <div class="yf-result-head"><b id="yfResultCount">CDC Yellow Fever centers</b><span id="yfResultStatus">Live registry</span></div>
+        <div class="yf-list" id="yfList"><div class="yf-loading">Loading CDC Yellow Fever registry…</div></div>
+      </section>
+    </div>
+  </main>
 </div>
 
 <script>
@@ -188,6 +244,9 @@ let currentBookLeaf=0;
 let totalBookLeaves=0;
 let bookEntries=[];
 let cdcLoaded=false;
+let yfLoaded=false;
+let yfStatesLoaded=false;
+let yfSearchTimer=null;
 
 function fillVaccineSelects(){
   const options=['<option value="">All vaccines</option>'].concat(VACCINE_CATALOG.map(v=>`<option value="${esc(v.code)}">${esc(v.name+(v.brand?' — '+v.brand:'')+(v.code==='typhoid-injectable'?' — Injectable':v.code==='typhoid-oral'?' — Oral':v.code==='polio-injectable'?' — Injectable':v.code==='polio-oral'?' — Oral':''))}</option>`)).join('');
@@ -433,12 +492,90 @@ async function loadCdcPrices(force=false){
   }
 }
 
+async function loadYellowFeverStates(){
+  if(yfStatesLoaded) return;
+  const response=await fetch('/api/cdc-yellow-fever/states',{cache:'no-store'});
+  if(!response.ok) throw new Error('CDC state list returned '+response.status);
+  const payload=await response.json();
+  const select=$('#yfStateSelect');
+  select.innerHTML='<option value="">All states / territories</option>'+payload.states.map(item=>`<option value="${esc(item.slug)}">${esc(item.label)}</option>`).join('');
+  if(payload.sourceUrl) $('#yfSourceLink').href=payload.sourceUrl;
+  yfStatesLoaded=true;
+}
+
+function renderYellowFeverCenters(centers){
+  const root=$('#yfList');
+  if(!centers.length){
+    root.innerHTML='<div class="yf-empty">No CDC Yellow Fever centers match this view yet. If the nationwide cache is still filling, choose a state to pull that CDC registry directly.</div>';
+    return;
+  }
+  const visible=centers.slice(0,600);
+  root.innerHTML=visible.map(center=>{
+    const address=[center.address,center.city,center.state_code,center.zip].filter(Boolean).join(', ').replace(', '+center.zip,' '+center.zip);
+    return `<article class="yf-card">
+      <h3>${esc(center.facility_name)}</h3>
+      <div class="yf-address">${esc(address)}${center.county?`<br>${esc(center.county)} County`:''}${center.phone?`<br>${esc(center.phone)}`:''}</div>
+      <div class="yf-card-meta">
+        ${center.sees_under_18?'<span class="yf-pill good">Sees patients under 18</span>':''}
+        ${center.limited_access?'<span class="yf-pill limit">Restricted access</span>':'<span class="yf-pill">CDC listed center</span>'}
+      </div>
+      <div class="yf-card-links">
+        ${center.website?`<a href="${esc(center.website)}" target="_blank" rel="noopener">Clinic website ↗</a>`:''}
+        <a href="${esc(center.source_url)}" target="_blank" rel="noopener">CDC state source ↗</a>
+      </div>
+    </article>`;
+  }).join('')+(centers.length>visible.length?`<div class="yf-empty"><b>${(centers.length-visible.length).toLocaleString()} more centers</b><br>Use the state or search filter to narrow the live registry.</div>`:'');
+}
+
+async function loadYellowFever(force=false){
+  const button=$('#yfRefresh');
+  const error=$('#yfError');
+  const root=$('#yfList');
+  if(button) button.disabled=true;
+  if(error){error.classList.remove('show');error.textContent='';}
+  if(!yfLoaded) root.innerHTML='<div class="yf-loading">Connecting to the CDC Yellow Fever registry…</div>';
+  try{
+    await loadYellowFeverStates();
+    const state=$('#yfStateSelect').value;
+    const q=$('#yfSearchInput').value.trim();
+    const params=new URLSearchParams();
+    if(state) params.set('state',state);
+    if(q) params.set('q',q);
+    if(force) params.set('refresh','1');
+    const response=await fetch('/api/cdc-yellow-fever?'+params.toString(),{cache:'no-store'});
+    if(!response.ok){
+      const detail=await response.json().catch(()=>({}));
+      throw new Error(detail.detail||detail.error||('CDC registry returned '+response.status));
+    }
+    const payload=await response.json();
+    renderYellowFeverCenters(payload.centers||[]);
+    $('#yfResultCount').textContent=(payload.count||0).toLocaleString()+' CDC Yellow Fever centers';
+    $('#yfResultStatus').textContent=state?'Live state registry':'National CDC cache';
+    const status=payload.status||{};
+    $('#yfActiveCenters').textContent=Number(status.active_centers||0).toLocaleString();
+    $('#yfSyncedStates').textContent=Number(status.synced_states||0).toLocaleString();
+    $('#yfLastSync').textContent=formatCheckedAt(status.newest_sync);
+    $('#yfRefreshRate').textContent='Every 6 hours';
+    $('#topMeta').textContent=(payload.count||0).toLocaleString()+' CDC Yellow Fever centers';
+    yfLoaded=true;
+  }catch(err){
+    if(error){error.textContent='CDC Yellow Fever registry issue: '+err.message;error.classList.add('show');}
+    root.innerHTML='<div class="yf-empty">The CDC Yellow Fever registry could not be loaded right now. Use the official CDC registry link above while the connection retries.</div>';
+  }finally{
+    if(button) button.disabled=false;
+  }
+}
+
 function switchView(name){
   document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
-  $('#mapView').classList.toggle('active',name==='map');$('#bookView').classList.toggle('active',name==='book');$('#cdcView').classList.toggle('active',name==='cdc');
+  $('#mapView').classList.toggle('active',name==='map');
+  $('#bookView').classList.toggle('active',name==='book');
+  $('#cdcView').classList.toggle('active',name==='cdc');
+  $('#yellowFeverView').classList.toggle('active',name==='yellow-fever');
   if(name==='map'){updateMeta();if(map) setTimeout(()=>map.resize(),60);}
   if(name==='book') updateMeta();
   if(name==='cdc'){$('#topMeta').textContent='CDC adult price list • auto-updating';loadCdcPrices(false);}
+  if(name==='yellow-fever'){loadYellowFever(false);}
 }
 
 function resizeBook(){
@@ -456,6 +593,12 @@ $('#resetFilters').addEventListener('click',resetFilters);
 $('#bookVaccineSelect').addEventListener('change',rebuildBook);
 $('#bookPrev').addEventListener('click',()=>turnBook(-1));$('#bookNext').addEventListener('click',()=>turnBook(1));
 $('#cdcRefresh').addEventListener('click',()=>loadCdcPrices(true));
+$('#yfRefresh').addEventListener('click',()=>loadYellowFever(true));
+$('#yfStateSelect').addEventListener('change',()=>loadYellowFever(false));
+$('#yfSearchInput').addEventListener('input',()=>{
+  clearTimeout(yfSearchTimer);
+  yfSearchTimer=setTimeout(()=>loadYellowFever(false),250);
+});
 $('#mapSettings').addEventListener('click',()=>$('#keybox').classList.toggle('hidden'));$('#closeKey').addEventListener('click',()=>$('#keybox').classList.add('hidden'));
 $('#saveKey').addEventListener('click',()=>{const key=$('#keyInput').value.trim();if(!key)return;localStorage.setItem('vax_registry_maptiler_key',key);location.reload()});
 
