@@ -488,7 +488,12 @@ async function start() {
     ensureYellowFeverTables(pool)
       .then(() => yellowFeverStatus(pool))
       .then((summary) => {
-        if (!summary.synced_states || Number(summary.synced_states) < 40) {
+        const expectedStates = Object.keys(STATE_SLUGS).length;
+        if (
+          !summary.synced_states ||
+          Number(summary.synced_states) < expectedStates ||
+          Number(summary.error_states || 0) > 0
+        ) {
           return syncAllYellowFever(pool);
         }
         return null;
