@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const https = require('https');
 const cheerio = require('cheerio');
 
 const CDC_YF_BASE = 'https://wwwnc.cdc.gov/travel/yellow-fever-vaccination-clinics';
@@ -171,18 +172,62 @@ function parseStatePage(html, stateSlug) {
   return records;
 }
 
+function fetchTextIpv4(url, redirects = 0) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, {
+      family: 4,
+      headers: {
+        'user-agent': 'Occu-Med Vaccine Self-Pay Registry/1.0 (+CDC Yellow Fever Registry)',
+        accept: 'text/html,application/xhtml+xml'
+      }
+    }, response => {
+      const location = response.headers.location;
+      if (response.statusCode >= 300 && response.statusCode < 400 && location) {
+        response.resume();
+        if (redirects >= 5) return reject(new Error('Too many CDC redirects.'));
+        return fetchTextIpv4(new URL(location, url).toString(), redirects + 1).then(resolve, reject);
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        response.resume();
+        return reject(new Error(`CDC Yellow Fever page returned HTTP ${response.statusCode}`));
+      }
+      const chunks = [];
+      response.on('data', chunk => chunks.push(chunk));
+      response.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    });
+    request.setTimeout(45000, () => request.destroy(new Error('CDC IPv4 request timed out.')));
+    request.on('error', reject);
+  });
+}
+
 async function fetchState(stateSlug) {
   if (!Object.values(STATE_SLUGS).includes(stateSlug)) throw new Error('Unsupported state or territory.');
   const sourceUrl = `${CDC_YF_BASE}/state/${stateSlug}`;
-  const response = await fetch(sourceUrl, {
-    headers: {
-      'user-agent': 'Occu-Med Vaccine Self-Pay Registry/1.0 (+CDC Yellow Fever Registry)',
-      accept: 'text/html,application/xhtml+xml'
-    },
-    redirect: 'follow'
-  });
-  if (!response.ok) throw new Error(`CDC Yellow Fever page returned HTTP ${response.status}`);
-  return parseStatePage(await response.text(), stateSlug);
+  let html = '';
+  let primaryError = null;
+  try {
+    const response = await fetch(sourceUrl, {
+      headers: {
+        'user-agent': 'Occu-Med Vaccine Self-Pay Registry/1.0 (+CDC Yellow Fever Registry)',
+        accept: 'text/html,application/xhtml+xml'
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(45000)
+    });
+    if (!response.ok) throw new Error(`CDC Yellow Fever page returned HTTP ${response.status}`);
+    html = await response.text();
+  } catch (error) {
+    primaryError = error;
+    try {
+      html = await fetchTextIpv4(sourceUrl);
+    } catch (ipv4Error) {
+      const message = `CDC connection failed: ${primaryError.message}; IPv4 retry failed: ${ipv4Error.message}`;
+      const combined = new Error(message);
+      combined.cause = ipv4Error;
+      throw combined;
+    }
+  }
+  return parseStatePage(html, stateSlug);
 }
 
 async function ensureTables(pool) {
