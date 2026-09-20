@@ -38,6 +38,32 @@ button,input,select{font:inherit}button{cursor:pointer}a{text-decoration:none;co
 
 @media(max-width:900px){.meta{display:none}.map-shell{grid-template-columns:330px 1fr}.book-zoom{transform:scale(.82)}}
 @media(max-width:700px){.topbar{padding:0 10px}.brand{font-size:14px}.mode{padding:7px 11px}.map-view{padding:0}.map-shell{border:0;border-radius:0;grid-template-columns:1fr}.map-side{position:absolute;z-index:15;left:8px;right:8px;bottom:8px;max-height:45%;border:1px solid #d9dde0;border-radius:22px;box-shadow:0 12px 35px rgba(0,0,0,.15)}.map-wrap{height:100%}.book-zoom{transform:scale(.62)}.jump{display:none}}
+
+/* CDC LIVE REFERENCE */
+.cdc-view{background:#eef1f3;padding:16px;overflow:auto}
+.cdc-shell{max-width:1500px;margin:0 auto;min-height:100%;display:grid;grid-template-rows:auto 1fr;gap:14px}
+.cdc-head{background:#fff;border:1px solid #dce1e4;border-radius:28px;padding:22px 24px;box-shadow:0 18px 50px rgba(28,40,50,.08)}
+.cdc-head-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
+.cdc-kicker{font-size:10px;text-transform:uppercase;letter-spacing:.12em;font-weight:800;color:#447164}
+.cdc-title{font-size:30px;line-height:1;letter-spacing:-.04em;margin:6px 0 8px;font-weight:850}
+.cdc-copy{font-size:12px;line-height:1.55;color:#666a6e;max-width:840px}
+.cdc-copy b{color:#26282b}
+.cdc-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.cdc-actions a,.cdc-actions button{border:0;border-radius:999px;padding:10px 14px;font-size:10px;font-weight:780}
+.cdc-actions a{background:#111;color:#fff}.cdc-actions button{background:#edf0f2;color:#222}
+.cdc-actions button:disabled{opacity:.5;cursor:default}
+.cdc-meta-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:18px}
+.cdc-meta-card{background:#f6f8f9;border:1px solid #e3e7e9;border-radius:18px;padding:13px 14px}
+.cdc-meta-card span{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.09em;color:#85888c;font-weight:800}
+.cdc-meta-card b{display:block;margin-top:5px;font-size:13px;color:#25272a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cdc-doc{background:#fff;border:1px solid #dce1e4;border-radius:28px;overflow:hidden;box-shadow:0 18px 50px rgba(28,40,50,.08);min-height:720px;position:relative}
+.cdc-status{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#777b7f;font-size:12px;background:#fff;z-index:2}
+.cdc-status.hidden{display:none}
+#cdcPdf{width:100%;height:calc(100vh - 260px);min-height:720px;border:0;background:#f4f5f6;display:block}
+.cdc-error{margin-top:10px;padding:10px 12px;border-radius:14px;background:#fff4f4;border:1px solid #f0d5d5;color:#8a3434;font-size:10px;display:none}
+.cdc-error.show{display:block}
+@media(max-width:850px){.cdc-view{padding:8px}.cdc-head{border-radius:22px;padding:18px}.cdc-head-top{display:block}.cdc-actions{justify-content:flex-start;margin-top:14px}.cdc-meta-grid{grid-template-columns:1fr 1fr}.cdc-doc{border-radius:22px}#cdcPdf{height:70vh;min-height:560px}}
+
 </style>
 </head>
 <body>
@@ -47,6 +73,7 @@ button,input,select{font:inherit}button{cursor:pointer}a{text-decoration:none;co
     <div class="modes" role="tablist" aria-label="Registry views">
       <button class="mode active" data-view="map">Map</button>
       <button class="mode" data-view="book">E-Catalogue</button>
+      <button class="mode" data-view="cdc">CDC Prices</button>
     </div>
     <div class="meta" id="topMeta">0 posted prices • 0 states</div>
   </header>
@@ -86,6 +113,36 @@ button,input,select{font:inherit}button{cursor:pointer}a{text-decoration:none;co
       <button id="bookPrev" aria-label="Previous page">‹</button>
       <div class="book-count"><b id="bookCurrent">Cover</b> / <span id="bookTotal">0</span></div>
       <button id="bookNext" aria-label="Next page">›</button>
+    </div>
+  </main>
+
+  <main class="view cdc-view" id="cdcView">
+    <div class="cdc-shell">
+      <section class="cdc-head">
+        <div class="cdc-head-top">
+          <div>
+            <div class="cdc-kicker">Official CDC reference • automatically refreshed</div>
+            <div class="cdc-title">Adult Vaccine Price List</div>
+            <div class="cdc-copy"><b>This is intentionally separate from the self-pay registry.</b> CDC contract prices are for eligible public immunization programs; the private-sector column is manufacturer-reported pricing for general information. Neither is treated as a clinic self-pay price.</div>
+          </div>
+          <div class="cdc-actions">
+            <a id="cdcPageLink" href="https://www.cdc.gov/vaccines-for-children/php/price-list/index.html#cdc_generic_section_2-adult-vaccine-price-list" target="_blank" rel="noopener">CDC source ↗</a>
+            <a id="cdcPdfLink" href="/api/cdc-prices/pdf" target="_blank" rel="noopener">Open PDF ↗</a>
+            <button id="cdcRefresh" type="button">Check for update</button>
+          </div>
+        </div>
+        <div class="cdc-meta-grid">
+          <div class="cdc-meta-card"><span>CDC list date</span><b id="cdcListDate">Loading…</b></div>
+          <div class="cdc-meta-card"><span>Source status</span><b id="cdcSourceStatus">Checking CDC…</b></div>
+          <div class="cdc-meta-card"><span>Last checked</span><b id="cdcCheckedAt">—</b></div>
+          <div class="cdc-meta-card"><span>Auto refresh</span><b id="cdcRefreshRate">Every 60 minutes</b></div>
+        </div>
+        <div class="cdc-error" id="cdcError"></div>
+      </section>
+      <section class="cdc-doc">
+        <div class="cdc-status" id="cdcStatus">Loading the current CDC Adult Vaccine Price List…</div>
+        <iframe id="cdcPdf" title="Current CDC Adult Vaccine Price List" loading="lazy"></iframe>
+      </section>
     </div>
   </main>
 </div>
@@ -130,6 +187,7 @@ let activePopup=null;
 let currentBookLeaf=0;
 let totalBookLeaves=0;
 let bookEntries=[];
+let cdcLoaded=false;
 
 function fillVaccineSelects(){
   const options=['<option value="">All vaccines</option>'].concat(VACCINE_CATALOG.map(v=>`<option value="${esc(v.code)}">${esc(v.name+(v.brand?' — '+v.brand:'')+(v.code==='typhoid-injectable'?' — Injectable':v.code==='typhoid-oral'?' — Oral':v.code==='polio-injectable'?' — Injectable':v.code==='polio-oral'?' — Oral':''))}</option>`)).join('');
@@ -336,10 +394,51 @@ function resetFilters(){
   $('#searchInput').value='';$('#vaccineSelect').value='';$('#stateSelect').value='';$('#routeSelect').value='';$('#maxPriceInput').value='';applyFilters();
 }
 
+function formatCheckedAt(value){
+  if(!value) return '—';
+  const date=new Date(value);
+  return Number.isNaN(date.getTime())?'—':date.toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+}
+
+async function loadCdcPrices(force=false){
+  const button=$('#cdcRefresh');
+  const status=$('#cdcStatus');
+  const error=$('#cdcError');
+  if(button) button.disabled=true;
+  if(status) status.classList.remove('hidden');
+  if(error){error.classList.remove('show');error.textContent='';}
+  try{
+    const response=await fetch('/api/cdc-prices'+(force?'?refresh=1':''),{cache:'no-store'});
+    if(!response.ok) throw new Error('CDC source check returned '+response.status);
+    const meta=await response.json();
+    $('#cdcListDate').textContent=meta.listDate||'Current CDC document';
+    $('#cdcSourceStatus').textContent=meta.source==='cdc'?'Live CDC link':'Last-known CDC document';
+    $('#cdcCheckedAt').textContent=formatCheckedAt(meta.checkedAt);
+    $('#cdcRefreshRate').textContent='Every '+(meta.autoRefreshMinutes||60)+' minutes';
+    $('#cdcPageLink').href=meta.pageUrl||'https://www.cdc.gov/vaccines-for-children/php/price-list/index.html';
+    $('#cdcPdfLink').href='/api/cdc-prices/pdf';
+    if(meta.error&&error){error.textContent='CDC check issue: '+meta.error+' — displaying the last-known document.';error.classList.add('show');}
+    const frame=$('#cdcPdf');
+    const nextSrc='/api/cdc-prices/pdf?v='+encodeURIComponent(meta.pdfUrl||meta.checkedAt||Date.now());
+    if(force||!cdcLoaded||frame.dataset.source!==String(meta.pdfUrl||'')){
+      frame.dataset.source=String(meta.pdfUrl||'');
+      frame.src=nextSrc;
+    }
+    cdcLoaded=true;
+  }catch(err){
+    if(error){error.textContent='Unable to load CDC price metadata: '+err.message;error.classList.add('show');}
+  }finally{
+    if(status) status.classList.add('hidden');
+    if(button) button.disabled=false;
+  }
+}
+
 function switchView(name){
   document.querySelectorAll('.mode').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
-  $('#mapView').classList.toggle('active',name==='map');$('#bookView').classList.toggle('active',name==='book');
-  if(name==='map'&&map) setTimeout(()=>map.resize(),60);
+  $('#mapView').classList.toggle('active',name==='map');$('#bookView').classList.toggle('active',name==='book');$('#cdcView').classList.toggle('active',name==='cdc');
+  if(name==='map'){updateMeta();if(map) setTimeout(()=>map.resize(),60);}
+  if(name==='book') updateMeta();
+  if(name==='cdc'){$('#topMeta').textContent='CDC adult price list • auto-updating';loadCdcPrices(false);}
 }
 
 function resizeBook(){
@@ -355,6 +454,7 @@ document.querySelectorAll('.mode').forEach(btn=>btn.addEventListener('click',()=
 $('#resetFilters').addEventListener('click',resetFilters);
 $('#bookVaccineSelect').addEventListener('change',rebuildBook);
 $('#bookPrev').addEventListener('click',()=>turnBook(-1));$('#bookNext').addEventListener('click',()=>turnBook(1));
+$('#cdcRefresh').addEventListener('click',()=>loadCdcPrices(true));
 $('#mapSettings').addEventListener('click',()=>$('#keybox').classList.toggle('hidden'));$('#closeKey').addEventListener('click',()=>$('#keybox').classList.add('hidden'));
 $('#saveKey').addEventListener('click',()=>{const key=$('#keyInput').value.trim();if(!key)return;localStorage.setItem('vax_registry_maptiler_key',key);location.reload()});
 
