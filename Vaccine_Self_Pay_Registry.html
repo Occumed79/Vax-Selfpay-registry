@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Vaccine Self-Pay Registry — Map + E-Catalogue</title>
+<title>Vaccine Self-Pay Registry — Map + E-Catalogue + CDC Prices</title>
 <link href="https://cdn.maptiler.com/maptiler-sdk-js/v4.1.0/maptiler-sdk.css" rel="stylesheet">
 <script src="https://cdn.maptiler.com/maptiler-sdk-js/v4.1.0/maptiler-sdk.umd.min.js"></script>
 <script>window.__MAPTILER_KEY__="";</script>
@@ -447,6 +447,7 @@ function resizeBook(){
 }
 
 fillVaccineSelects();fillStates();applyFilters();resizeBook();
+if(location.pathname==='/cdc-prices'||location.hash==='#cdc-prices') switchView('cdc');
 window.addEventListener('resize',resizeBook);
 
 document.querySelectorAll('.mode').forEach(btn=>btn.addEventListener('click',()=>switchView(btn.dataset.view)));
